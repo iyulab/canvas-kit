@@ -1,0 +1,20 @@
+{
+  "name": "@canvas-kit/designer",
+  "version": "0.0.0",
+  "main": "./src/index.tsx",
+  "types": "./src/index.tsx",
+  "license": "MIT",
+  "scripts": {
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@canvas-kit/core": "workspace:*",
+    "@canvas-kit/viewer": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0"
+  }
+}
