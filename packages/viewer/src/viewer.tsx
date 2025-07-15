@@ -7,15 +7,24 @@ interface ViewerProps {
   scene?: Scene;
 }
 
-export const Viewer: React.FC<ViewerProps> = ({ width, height, scene }) => {
+export const Viewer: React.FC<ViewerProps> = ({ width, height, scene }: ViewerProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     if (canvasRef.current && scene) {
+      console.log('Rendering scene with objects:', scene.getObjects());
       const renderer = new CanvasKitRenderer(canvasRef.current);
       renderer.render(scene);
     }
-  }, [scene]);
+  }, [scene, width, height]);
 
-  return <canvas ref={canvasRef} width={width} height={height} data-testid="canvas" />;
+  return (
+    <canvas
+      ref={canvasRef}
+      width={width}
+      height={height}
+      data-testid="canvas"
+      style={{ border: '1px solid #ccc' }}
+    />
+  );
 };

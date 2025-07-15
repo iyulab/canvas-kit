@@ -27,11 +27,24 @@ export interface Text extends Shape {
   type: 'text';
 }
 
+export interface Path extends Shape {
+  points: number[]; // [x1, y1, x2, y2, ...]
+  tension?: number; // for curve smoothing
+  closed?: boolean;
+  type: 'path';
+}
+
+export interface Line extends Shape {
+  points: number[]; // [x1, y1, x2, y2, ...]
+  type: 'line';
+}
+
 // 확장성을 고려한 객체 타입
 export type DrawingObject =
   | Rect
   | Circle
   | Text
+  | Path
+  | Line
   // | Image
-  // | Path
   ;

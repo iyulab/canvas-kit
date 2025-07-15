@@ -20,10 +20,10 @@ export default function HomePage() {
             📊 기능 샘플 보기
           </Link>
           <Link
-            href="/demo"
+            href="/samples/designer"
             className="px-8 py-3 text-blue-600 bg-white border-2 border-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium"
           >
-            🎨 데모 확인하기
+            🎨 Designer 샘플
           </Link>
         </div>
 

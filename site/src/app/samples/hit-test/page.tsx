@@ -26,7 +26,7 @@ export default function HitTestSample() {
             y: 50,
             width: 100,
             height: 80,
-            color: 'rgba(255, 0, 0, 0.7)'
+            fill: 'rgba(255, 0, 0, 0.7)'
         });
 
         newScene.add({
@@ -34,7 +34,7 @@ export default function HitTestSample() {
             x: 120,
             y: 90,
             radius: 40,
-            color: 'rgba(0, 255, 0, 0.7)'
+            fill: 'rgba(0, 255, 0, 0.7)'
         });
 
         newScene.add({
@@ -43,7 +43,7 @@ export default function HitTestSample() {
             y: 30,
             width: 80,
             height: 120,
-            color: 'rgba(0, 0, 255, 0.7)'
+            fill: 'rgba(0, 0, 255, 0.7)'
         });
 
         newScene.add({
@@ -51,7 +51,7 @@ export default function HitTestSample() {
             x: 240,
             y: 90,
             radius: 30,
-            color: 'rgba(255, 255, 0, 0.7)'
+            fill: 'rgba(255, 255, 0, 0.7)'
         });
 
         // 겹치는 작은 사각형
@@ -61,7 +61,7 @@ export default function HitTestSample() {
             y: 70,
             width: 60,
             height: 40,
-            color: 'rgba(255, 0, 255, 0.7)'
+            fill: 'rgba(255, 0, 255, 0.7)'
         });
 
         setScene(newScene);
@@ -92,7 +92,7 @@ export default function HitTestSample() {
             type: obj.type,
             x: obj.x,
             y: obj.y,
-            color: obj.color
+            fill: obj.fill
         };
 
         if (obj.type === 'rect') {
@@ -233,8 +233,8 @@ export default function HitTestSample() {
                                 <div
                                     key={index}
                                     className={`p-3 rounded border text-sm ${selectedObject === obj
-                                            ? 'bg-blue-100 border-blue-300'
-                                            : 'bg-gray-50 border-gray-200'
+                                        ? 'bg-blue-100 border-blue-300'
+                                        : 'bg-gray-50 border-gray-200'
                                         }`}
                                 >
                                     <div className="font-medium">{obj.type} #{index + 1}</div>
@@ -246,7 +246,7 @@ export default function HitTestSample() {
                                     </div>
                                     <div
                                         className="w-4 h-4 rounded mt-1"
-                                        style={{ backgroundColor: obj.color }}
+                                        style={{ backgroundColor: obj.fill }}
                                     />
                                 </div>
                             ))}

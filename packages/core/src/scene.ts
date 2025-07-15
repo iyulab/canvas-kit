@@ -51,4 +51,23 @@ export class Scene {
   getObjectsAtPoint(x: number, y: number): DrawingObject[] {
     return HitTest.getObjectsAtPoint(x, y, this.objects);
   }
+
+  /**
+   * Scene의 복사본을 생성
+   */
+  copy(): Scene {
+    const newScene = new Scene();
+    newScene.objects = [...this.objects.map(obj => ({ ...obj }))];
+    return newScene;
+  }
+
+  /**
+   * 객체 업데이트
+   */
+  updateObject(oldObj: DrawingObject, newObj: DrawingObject): void {
+    const index = this.objects.indexOf(oldObj);
+    if (index > -1) {
+      this.objects[index] = newObj;
+    }
+  }
 }

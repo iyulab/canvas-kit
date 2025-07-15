@@ -1,7 +1,9 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Stage, Layer, Rect, Circle, Text, Transformer } from 'react-konva';
-import type { Scene, DrawingObject, Rect as RectType, Circle as CircleType, Text as TextType } from '@canvas-kit/core';
+import { Scene, CommandHistory, MoveCommand, ResizeCommand, CopyCommand, CutCommand, PasteCommand, DuplicateCommand, Clipboard } from '@canvas-kit/core';
+import type { DrawingObject, Rect as RectType, Circle as CircleType, Text as TextType } from '@canvas-kit/core';
 import Konva from 'konva';
+import { SelectionBox } from './SelectionBox';
 
 interface KonvaDesignerProps {
     width: number;
@@ -10,6 +12,8 @@ interface KonvaDesignerProps {
     onSceneChange?: (scene: Scene) => void;
     onSelectionChange?: (selectedObjects: DrawingObject[]) => void;
     enableMultiSelect?: boolean;
+    enableRectangleSelection?: boolean;
+    commandHistory?: CommandHistory;
 }
 
 export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
@@ -18,11 +22,17 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
     scene,
     onSceneChange,
     onSelectionChange,
-    enableMultiSelect = true
+    enableMultiSelect = true,
+    enableRectangleSelection = true,
+    commandHistory = new CommandHistory()
 }) => {
     const stageRef = useRef<Konva.Stage>(null);
     const transformerRef = useRef<Konva.Transformer>(null);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+    // Undo/Redo를 위한 드래그/변형 시작 상태 추적
+    const [dragStartPosition, setDragStartPosition] = useState<Record<string, { x: number; y: number }>>({});
+    const [transformStartState, setTransformStartState] = useState<Record<string, any>>({});
 
     // Scene 객체들을 Konva ID와 매핑
     const objects = scene.getObjects();
@@ -31,73 +41,347 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
     const handleObjectChange = useCallback((updatedObject: DrawingObject) => {
         if (!onSceneChange) return;
 
-        const newObjects = objects.map(obj =>
-            getObjectId(obj) === getObjectId(updatedObject) ? updatedObject : obj
-        );
+        // Scene의 updateObject 메서드 사용
+        const newScene = scene.copy();
+        const objIndex = objects.findIndex(obj => getObjectId(obj) === getObjectId(updatedObject));
+        if (objIndex !== -1) {
+            // 기존 객체 제거 후 새 객체 추가
+            newScene.remove(objects[objIndex]);
+            newScene.add(updatedObject);
+        }
 
-        // Scene 업데이트
-        const newScene = { ...scene };
-        newScene.objects = newObjects;
         onSceneChange(newScene);
     }, [scene, objects, onSceneChange]);
 
-    // 드래그 종료 처리
+    // 드래그 시작 처리
+    const handleDragStart = useCallback((id: string, e: Konva.KonvaEventObject<DragEvent>) => {
+        const node = e.target;
+        setDragStartPosition(prev => ({
+            ...prev,
+            [id]: { x: node.x(), y: node.y() }
+        }));
+    }, []);
+
+    // 드래그 종료 처리 (Command 패턴 적용)
     const handleDragEnd = useCallback((id: string, e: Konva.KonvaEventObject<DragEvent>) => {
         const node = e.target;
         const obj = objects.find(o => getObjectId(o) === id);
-        if (!obj) return;
+        const startPos = dragStartPosition[id];
+
+        if (!obj || !startPos || !onSceneChange) return;
+
+        const newPosition = { x: node.x(), y: node.y() };
+
+        // 위치가 실제로 변경되었는지 확인
+        if (startPos.x === newPosition.x && startPos.y === newPosition.y) {
+            return;
+        }
 
         const updatedObject: DrawingObject = {
             ...obj,
-            x: node.x(),
-            y: node.y(),
+            x: newPosition.x,
+            y: newPosition.y,
         };
 
-        handleObjectChange(updatedObject);
-    }, [objects, handleObjectChange]);
+        // MoveCommand 생성 및 실행
+        const moveCommand = new MoveCommand(obj, startPos, newPosition, scene);
+        commandHistory.execute(moveCommand);
 
-    // 변형(리사이즈) 종료 처리
-    const handleTransformEnd = useCallback((id: string, e: Konva.KonvaEventObject<Event>) => {
+        // Scene 업데이트
+        const newScene = new Scene();
+        // 기존 객체들을 새 Scene에 복사
+        objects.forEach(existingObj => {
+            if (getObjectId(existingObj) === getObjectId(obj)) {
+                newScene.add(updatedObject);
+            } else {
+                newScene.add(existingObj);
+            }
+        });
+        onSceneChange(newScene);
+
+        // 드래그 시작 위치 초기화
+        setDragStartPosition(prev => {
+            const newState = { ...prev };
+            delete newState[id];
+            return newState;
+        });
+    }, [objects, dragStartPosition, scene, commandHistory, onSceneChange]);
+
+    // 변형 시작 처리
+    const handleTransformStart = useCallback((id: string, e: Konva.KonvaEventObject<Event>) => {
         const node = e.target;
         const obj = objects.find(o => getObjectId(o) === id);
         if (!obj) return;
+
+        const currentState: any = {
+            x: node.x(),
+            y: node.y(),
+            scaleX: node.scaleX(),
+            scaleY: node.scaleY(),
+        };
+
+        if (obj.type === 'rect') {
+            const rect = obj as RectType;
+            currentState.width = rect.width;
+            currentState.height = rect.height;
+        } else if (obj.type === 'circle') {
+            const circle = obj as CircleType;
+            currentState.radius = circle.radius;
+        }
+
+        setTransformStartState(prev => ({
+            ...prev,
+            [id]: currentState
+        }));
+    }, [objects]);
+
+    // 변형(리사이즈) 종료 처리 (Command 패턴 적용)
+    const handleTransformEnd = useCallback((id: string, e: Konva.KonvaEventObject<Event>) => {
+        const node = e.target;
+        const obj = objects.find(o => getObjectId(o) === id);
+        const startState = transformStartState[id];
+
+        if (!obj || !startState || !onSceneChange) return;
 
         const scaleX = node.scaleX();
         const scaleY = node.scaleY();
 
+        let oldSize: any;
+        let newSize: any;
         let updatedObject: DrawingObject;
 
         if (obj.type === 'rect') {
             const rect = obj as RectType;
-            updatedObject = {
-                ...obj,
+            oldSize = {
+                x: startState.x,
+                y: startState.y,
+                width: startState.width,
+                height: startState.height
+            };
+            newSize = {
                 x: node.x(),
                 y: node.y(),
                 width: Math.max(5, rect.width * scaleX),
-                height: Math.max(5, rect.height * scaleY),
+                height: Math.max(5, rect.height * scaleY)
+            };
+            updatedObject = {
+                ...obj,
+                x: newSize.x,
+                y: newSize.y,
+                width: newSize.width,
+                height: newSize.height,
             };
         } else if (obj.type === 'circle') {
             const circle = obj as CircleType;
-            updatedObject = {
-                ...obj,
+            oldSize = {
+                x: startState.x,
+                y: startState.y,
+                radius: startState.radius
+            };
+            newSize = {
                 x: node.x(),
                 y: node.y(),
-                radius: Math.max(5, circle.radius * Math.max(scaleX, scaleY)),
+                radius: Math.max(5, circle.radius * Math.max(scaleX, scaleY))
+            };
+            updatedObject = {
+                ...obj,
+                x: newSize.x,
+                y: newSize.y,
+                radius: newSize.radius,
             };
         } else {
+            // 텍스트 등 기본 객체
+            oldSize = {
+                x: startState.x,
+                y: startState.y
+            };
+            newSize = {
+                x: node.x(),
+                y: node.y()
+            };
             updatedObject = {
                 ...obj,
-                x: node.x(),
-                y: node.y(),
+                x: newSize.x,
+                y: newSize.y,
             };
+        }
+
+        // 실제로 변경되었는지 확인
+        const hasChanged = JSON.stringify(oldSize) !== JSON.stringify(newSize);
+
+        if (hasChanged) {
+            // ResizeCommand 생성 및 실행
+            const resizeCommand = new ResizeCommand(obj, oldSize, newSize, scene);
+            commandHistory.execute(resizeCommand);
         }
 
         // 스케일 리셋
         node.scaleX(1);
         node.scaleY(1);
 
-        handleObjectChange(updatedObject);
-    }, [objects, handleObjectChange]);
+        // Scene 업데이트
+        const newScene = new Scene();
+        objects.forEach(existingObj => {
+            if (getObjectId(existingObj) === getObjectId(obj)) {
+                newScene.add(updatedObject);
+            } else {
+                newScene.add(existingObj);
+            }
+        });
+        onSceneChange(newScene);
+
+        // 변형 시작 상태 초기화
+        setTransformStartState(prev => {
+            const newState = { ...prev };
+            delete newState[id];
+            return newState;
+        });
+    }, [objects, transformStartState, scene, commandHistory, onSceneChange]);
+
+    // 키보드 단축키 처리
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === 'z' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (commandHistory.undo() && onSceneChange) {
+                        // Scene 재구성은 Command 자체에서 처리되므로 
+                        // 현재 scene 상태를 그대로 전달
+                        onSceneChange(scene);
+                    }
+                } else if ((e.key === 'y') || (e.key === 'z' && e.shiftKey)) {
+                    e.preventDefault();
+                    if (commandHistory.redo() && onSceneChange) {
+                        onSceneChange(scene);
+                    }
+                } else if (e.key === 'c') {
+                    e.preventDefault();
+                    handleCopy();
+                } else if (e.key === 'x') {
+                    e.preventDefault();
+                    handleCut();
+                } else if (e.key === 'v') {
+                    e.preventDefault();
+                    handlePaste();
+                } else if (e.key === 'd') {
+                    e.preventDefault();
+                    handleDuplicate();
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [commandHistory, scene, onSceneChange, selectedIds]);
+
+    // Copy/Paste/Cut/Duplicate 핸들러들
+    const handleCopy = useCallback(() => {
+        const selectedObjects = objects.filter((obj: DrawingObject) =>
+            selectedIds.includes(getObjectId(obj))
+        );
+
+        if (selectedObjects.length > 0) {
+            const copyCommand = new CopyCommand(selectedObjects);
+            commandHistory.execute(copyCommand);
+        }
+    }, [selectedIds, objects, commandHistory]);
+
+    const handleCut = useCallback(() => {
+        const selectedObjects = objects.filter((obj: DrawingObject) =>
+            selectedIds.includes(getObjectId(obj))
+        );
+
+        if (selectedObjects.length > 0 && onSceneChange) {
+            const cutCommand = new CutCommand(selectedObjects, scene);
+            commandHistory.execute(cutCommand);
+
+            // Scene 업데이트
+            const newScene = new Scene();
+            objects.forEach((obj: DrawingObject) => {
+                if (!selectedIds.includes(getObjectId(obj))) {
+                    newScene.add(obj);
+                }
+            });
+            onSceneChange(newScene);
+
+            // 선택 해제
+            setSelectedIds([]);
+            if (onSelectionChange) {
+                onSelectionChange([]);
+            }
+        }
+    }, [selectedIds, objects, scene, commandHistory, onSceneChange, onSelectionChange]);
+
+    const handlePaste = useCallback(() => {
+        if (!onSceneChange) return;
+
+        const clipboard = Clipboard.getInstance();
+        if (clipboard.isEmpty()) return;
+
+        const pasteCommand = new PasteCommand(scene);
+        commandHistory.execute(pasteCommand);
+
+        // Scene 업데이트
+        const newScene = new Scene();
+        objects.forEach((obj: DrawingObject) => newScene.add(obj));
+
+        // 붙여넣은 객체들 추가
+        const pastedObjects = clipboard.paste();
+        pastedObjects.forEach((obj: DrawingObject) => newScene.add(obj));
+
+        onSceneChange(newScene);
+
+        // 붙여넣은 객체들 선택
+        const pastedIds = pastedObjects.map((obj: DrawingObject) => getObjectId(obj));
+        setSelectedIds(pastedIds);
+        if (onSelectionChange) {
+            onSelectionChange(pastedObjects);
+        }
+    }, [scene, objects, commandHistory, onSceneChange, onSelectionChange]);
+
+    const handleDuplicate = useCallback(() => {
+        const selectedObjects = objects.filter((obj: DrawingObject) =>
+            selectedIds.includes(getObjectId(obj))
+        );
+
+        if (selectedObjects.length > 0 && onSceneChange) {
+            const duplicateCommand = new DuplicateCommand(selectedObjects, scene);
+            commandHistory.execute(duplicateCommand);
+
+            // Scene 업데이트
+            const newScene = new Scene();
+            objects.forEach((obj: DrawingObject) => newScene.add(obj));
+
+            // 중복된 객체들 추가
+            const duplicatedObjects = selectedObjects.map((obj: DrawingObject) => ({
+                ...obj,
+                id: `${obj.type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                x: obj.x + 20,
+                y: obj.y + 20
+            }));
+            duplicatedObjects.forEach((obj: DrawingObject) => newScene.add(obj));
+
+            onSceneChange(newScene);
+
+            // 중복된 객체들 선택
+            const duplicatedIds = duplicatedObjects.map((obj: DrawingObject) => getObjectId(obj));
+            setSelectedIds(duplicatedIds);
+            if (onSelectionChange) {
+                onSelectionChange(duplicatedObjects);
+            }
+        }
+    }, [selectedIds, objects, scene, commandHistory, onSceneChange, onSelectionChange]);
+
+    // Rectangle Selection 처리
+    const handleRectangleSelection = useCallback((selectedObjects: DrawingObject[]) => {
+        const newSelectedIds = selectedObjects.map(obj => getObjectId(obj));
+        setSelectedIds(newSelectedIds);
+
+        // 선택된 객체들을 콜백으로 전달
+        if (onSelectionChange) {
+            onSelectionChange(selectedObjects);
+        }
+    }, [onSelectionChange]);
 
     // 선택 처리
     const handleSelect = (id: string, e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -176,7 +460,9 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
             onClick: (e: Konva.KonvaEventObject<MouseEvent>) => handleSelect(id, e),
             onTap: (e: Konva.KonvaEventObject<TouchEvent>) => handleSelect(id, e as any),
             draggable: true,
+            onDragStart: (e: Konva.KonvaEventObject<DragEvent>) => handleDragStart(id, e),
             onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => handleDragEnd(id, e),
+            onTransformStart: (e: Konva.KonvaEventObject<Event>) => handleTransformStart(id, e),
             onTransformEnd: (e: Konva.KonvaEventObject<Event>) => handleTransformEnd(id, e),
             // 선택된 객체는 약간 다른 스타일
             opacity: isSelected ? 0.8 : 1,
@@ -252,6 +538,15 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
                         return newBox;
                     }}
                 />
+
+                {/* Rectangle Selection */}
+                {enableRectangleSelection && (
+                    <SelectionBox
+                        isActive={true}
+                        onSelectionComplete={handleRectangleSelection}
+                        objects={objects}
+                    />
+                )}
             </Layer>
         </Stage>
     );

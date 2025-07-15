@@ -16,29 +16,40 @@ export default function BasicRenderingSample() {
     const createScene = () => {
         const newScene = new Scene();
 
+        console.log('Creating scene with counts:', objectCount);
+
         // 사각형들 추가
         for (let i = 0; i < objectCount.rect; i++) {
-            newScene.add({
-                type: 'rect',
+            const rect = {
+                type: 'rect' as const,
                 x: 50 + i * 80,
                 y: 50 + i * 30,
                 width: 60,
                 height: 40,
-                color: `hsl(${i * 60}, 70%, 50%)`
-            });
+                fill: `hsl(${i * 60}, 70%, 50%)`,
+                stroke: '#333',
+                strokeWidth: 1
+            };
+            console.log('Adding rect:', rect);
+            newScene.add(rect);
         }
 
         // 원들 추가
         for (let i = 0; i < objectCount.circle; i++) {
-            newScene.add({
-                type: 'circle',
+            const circle = {
+                type: 'circle' as const,
                 x: 150 + i * 80,
                 y: 200 + i * 40,
                 radius: 25 + i * 5,
-                color: `hsl(${180 + i * 60}, 70%, 50%)`
-            });
+                fill: `hsl(${180 + i * 60}, 70%, 50%)`,
+                stroke: '#333',
+                strokeWidth: 1
+            };
+            console.log('Adding circle:', circle);
+            newScene.add(circle);
         }
 
+        console.log('Final scene objects:', newScene.getObjects());
         setScene(newScene);
     };
 
@@ -47,14 +58,14 @@ export default function BasicRenderingSample() {
     }, [objectCount]);
 
     const addObject = (type: 'rect' | 'circle') => {
-        setObjectCount(prev => ({
+        setObjectCount((prev: { rect: number; circle: number }) => ({
             ...prev,
             [type]: prev[type] + 1
         }));
     };
 
     const removeObject = (type: 'rect' | 'circle') => {
-        setObjectCount(prev => ({
+        setObjectCount((prev: { rect: number; circle: number }) => ({
             ...prev,
             [type]: Math.max(0, prev[type] - 1)
         }));
@@ -145,9 +156,34 @@ export default function BasicRenderingSample() {
                 <div className="lg:col-span-2">
                     <div className="border-2 border-gray-200 rounded-lg p-4 bg-white">
                         <h3 className="text-lg font-medium mb-4">Canvas Viewer</h3>
+
+                        {/* 디버그 정보 */}
+                        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-sm">
+                            <p><strong>Scene Status:</strong> {scene ? '✅ Loaded' : '❌ Not loaded'}</p>
+                            <p><strong>Objects in Scene:</strong> {scene?.getObjects().length || 0}</p>
+                            {scene && scene.getObjects().length > 0 && (
+                                <div className="mt-2">
+                                    <p><strong>Objects:</strong></p>
+                                    <ul className="ml-4">
+                                        {scene.getObjects().map((obj: any, index: number) => (
+                                            <li key={index}>
+                                                {obj.type} at ({obj.x}, {obj.y}) - fill: {obj.fill}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                        </div>
+
                         {scene && (
                             <div className="border border-gray-300 rounded overflow-hidden">
                                 <Viewer width={600} height={400} scene={scene} />
+                            </div>
+                        )}
+
+                        {!scene && (
+                            <div className="border border-gray-300 rounded p-8 text-center text-gray-500">
+                                Scene이 로드되지 않았습니다.
                             </div>
                         )}
                     </div>
