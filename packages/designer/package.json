@@ -10,7 +10,11 @@
   },
   "dependencies": {
     "@canvas-kit/core": "workspace:*",
-    "@canvas-kit/viewer": "workspace:*"
+    "@canvas-kit/viewer": "workspace:*",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "konva": "^9.3.22",
+    "react-konva": "^19.0.7"
   },
   "peerDependencies": {
     "react": "^19.0.0"

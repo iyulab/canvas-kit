@@ -1,16 +1,11 @@
 # Canvas-Kit Konva.js 전면 전환 로드맵
 
-## 🚨 **BREAKING CHANGE: 과감한 리팩토링 전략 - 즉시 실행**
+## 🚨 **BREAKING CHANGE: 과감한 리팩토링 전략**
 
 ### **전환 목표**
 - **Designer 패키지**: Konva.js 기반 완전한 편집 환경 구축
-- **Core/Viewer 패키지**: 가벼운 Native Canvas 유지  
+- **Core/Viewer 패키지**: 가벼운 Native Canvas 유지
 - **레거시 코드**: 과감한 폐기로 기술 부채 제거
-
-### **⚡ 실행 상태: IN PROGRESS**
-**시작일**: 2025-07-15  
-**목표 완료**: 2025-07-22 (1주)  
-**현재 진행**: Step 1 - Konva Designer 기반 구조
 
 ---
 
@@ -30,37 +25,7 @@
 
 ---
 
-## � **실행 결과: STEP 1 완료!** (2025-07-15)
-
-### **✅ 성과 요약**
-- **Konva Designer**: 완전한 드래그, 리사이즈, 선택 기능 구현
-- **레거시 제거**: SVGOverlay, SelectableViewer 완전 삭제 (기술 부채 제거)
-- **번들 최적화**: Core 패키지 8.6KB로 축소 (가벼움 유지)
-- **테스트 안정성**: 30개 테스트 모두 통과
-- **실시간 확인**: http://localhost:3002/demo/designer
-
-### **📊 패키지별 현재 상태**
-```
-@canvas-kit/core (8.6KB)     ✅ 가벼운 순수 데이터 모델
-@canvas-kit/viewer           ✅ Native Canvas 렌더러 유지  
-@canvas-kit/designer (200KB) ✅ Konva.js 기반 완전한 편집기
-```
-
----
-
-## 🎯 **NEXT: Step 2 - 고급 기능 확장** (Day 2-3)
-
-### **Step 2A: 멀티 선택 시스템 고도화**
-- [ ] **Rectangle Selection** (드래그로 영역 선택)
-- [ ] **Group Transform** (다중 객체 동시 변형)
-- [ ] **Snap & Guide** (정렬 가이드라인)
-- [ ] **Undo/Redo 시스템**
-
-### **Step 2B: 고급 Konva 기능 활용**
-- [ ] **레이어 시스템** (객체 순서 관리)
-- [ ] **애니메이션 효과** (부드러운 트랜지션)
-- [ ] **이미지 지원** (드래그 앤 드롭)
-- [ ] **성능 최적화** (가상화, 캐싱)
+## 🎯 **Phase 3: Konva.js 전면 전환** (최우선 - 1주)
 
 ### **새로운 아키텍처 정의**
 ```typescript
@@ -102,6 +67,26 @@
 - 🔄 Custom drag logic → Konva draggable
 - 🔄 SVG overlay → Konva visual feedback
 - 🔄 Transform calculations → Konva Transformer
+
+---
+
+## 🎯 **Phase 4: 고급 Konva 기능 구현** (1주)
+
+### **Day 1-3: 기본 편집 도구**
+- [ ] **드래그 & 드롭**: Konva draggable 속성 활용
+- [ ] **크기 조정**: Transformer resize 핸들
+- [ ] **회전**: Transformer rotation 핸들
+- [ ] **다중 선택**: Transformer 멀티 객체 지원
+
+### **Day 4-5: 고급 편집 기능**
+- [ ] **레이어 관리**: Konva Layer 시스템 활용
+- [ ] **그룹화**: Konva Group으로 객체 그룹화
+- [ ] **애니메이션**: Konva Tween을 활용한 부드러운 애니메이션
+
+### **Day 6-7: 편집 인터페이스**
+- [ ] **속성 패널**: 선택된 객체 실시간 속성 편집
+- [ ] **툴바**: 선택, 삭제, 복사/붙여넣기 도구
+- [ ] **Undo/Redo**: Konva 상태 기반 히스토리 관리
 
 ---
 
@@ -148,9 +133,40 @@ export class KonvaDesigner extends React.Component {
 
 ---
 
-## 🚀 **즉시 실행: Konva 도입 착수**
+## 🎯 **구현 우선순위**
 
-### **오늘 시작할 작업**
+### **Week 1: 핵심 전환 (파괴적 변경)**
+1. **Day 1-2**: Designer 패키지에 Konva 도입, 기본 Stage 구성
+2. **Day 3-4**: Selection system을 Konva Transformer로 대체
+3. **Day 5**: SVGOverlay, SelectableViewer 완전 제거
+4. **Day 6-7**: 샘플 업데이트, 테스트 수정, 검증
+
+### **Week 2: 고급 기능 구현**
+1. **Day 1-3**: 드래그, 크기조정, 회전 완구현
+2. **Day 4-5**: 레이어 관리, 그룹화 기능
+3. **Day 6-7**: 속성 패널, 히스토리 관리
+
+---
+
+## 📊 **성과 목표 및 KPI**
+
+### **기술적 목표**
+- ✅ **Designer 기능**: Konva 기반 완전한 편집 환경
+- ✅ **성능**: Native Canvas 대비 동등 이상 성능
+- ✅ **번들 크기**: Core/Viewer 가벼움 유지
+- ✅ **신뢰성**: 검증된 Konva.js 기술 스택
+
+### **사용자 경험 목표**
+- 🎯 **편집 도구**: 드래그, 크기조정, 회전 모두 지원
+- 🎯 **시각적 피드백**: 부드러운 애니메이션과 변환
+- 🎯 **전문 기능**: 레이어, 그룹화, Undo/Redo
+- 🎯 **반응성**: 60FPS 부드러운 인터랙션
+
+---
+
+## 🚀 **즉시 실행 계획**
+
+### **오늘 착수할 작업**
 1. **konva, react-konva 패키지 설치** (designer만)
 2. **기본 KonvaStage 컴포넌트 구현**
 3. **Scene → Konva Objects 변환 로직**
@@ -161,3 +177,14 @@ export class KonvaDesigner extends React.Component {
 - ✅ 기존 Selection 기능 Konva로 완전 대체
 - ✅ 레거시 코드 제거 완료
 - ✅ 새로운 아키텍처 안정화
+
+---
+
+## 🎯 **핵심 원칙: 과감한 리팩토링**
+
+1. **레거시 유지 비용 포기**: 하위 호환성보다 미래 확장성 우선
+2. **검증된 기술 도입**: Konva.js의 성숙한 생태계 활용
+3. **명확한 책임 분리**: 각 패키지의 역할을 명확히 구분
+4. **점진적 개선 거부**: 전면적 재구성으로 근본적 해결
+
+**→ 2주 후: 현대적이고 확장 가능한 Konva 기반 Canvas-Kit 완성** 🎯

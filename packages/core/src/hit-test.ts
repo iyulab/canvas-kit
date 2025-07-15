@@ -1,4 +1,4 @@
-import type { DrawingObject, Rect, Circle } from './types';
+import type { DrawingObject, Rect, Circle, Text } from './types';
 
 /**
  * 주어진 좌표에서 객체와의 충돌을 검사하는 유틸리티 함수들
@@ -27,6 +27,22 @@ export class HitTest {
     }
 
     /**
+     * 점이 텍스트 영역 내부에 있는지 확인 (근사치)
+     */
+    static isPointInText(x: number, y: number, text: Text): boolean {
+        const fontSize = text.fontSize || 16;
+        const textWidth = text.text.length * fontSize * 0.6; // 근사치
+        const textHeight = fontSize;
+
+        return (
+            x >= text.x &&
+            x <= text.x + textWidth &&
+            y >= text.y - textHeight &&
+            y <= text.y
+        );
+    }
+
+    /**
      * 점이 객체 내부에 있는지 확인 (타입에 따라 적절한 메서드 호출)
      */
     static isPointInObject(x: number, y: number, obj: DrawingObject): boolean {
@@ -35,6 +51,8 @@ export class HitTest {
                 return this.isPointInRect(x, y, obj as Rect);
             case 'circle':
                 return this.isPointInCircle(x, y, obj as Circle);
+            case 'text':
+                return this.isPointInText(x, y, obj as Text);
             default:
                 return false;
         }

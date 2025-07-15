@@ -21,8 +21,8 @@ describe('CanvasKitRenderer', () => {
   });
 
   it('should render a scene with a rectangle and a circle', () => {
-    scene.add({ type: 'rect', x: 10, y: 20, width: 50, height: 100, color: 'red' });
-    scene.add({ type: 'circle', x: 30, y: 40, radius: 25, color: 'blue' });
+    scene.add({ type: 'rect', x: 10, y: 20, width: 50, height: 100, fill: 'red' });
+    scene.add({ type: 'circle', x: 30, y: 40, radius: 25, fill: 'blue' });
 
     renderer.render(scene);
 

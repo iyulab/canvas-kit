@@ -8,6 +8,10 @@ interface DesignerProps {
   scene: Scene;
 }
 
+/**
+ * @deprecated 레거시 Designer - Konva 전환 후 제거 예정
+ * KonvaDesigner 사용을 권장합니다.
+ */
 export const Designer: React.FC<DesignerProps> = ({ width, height, scene }) => {
   return (
     <div style={{ position: 'relative', width, height }}>
@@ -27,3 +31,7 @@ export const Designer: React.FC<DesignerProps> = ({ width, height, scene }) => {
     </div>
   );
 };
+
+// 🔥 NEW: Konva 기반 Designer - 메인 컴포넌트
+export { KonvaDesigner } from './KonvaDesigner';
+export { KonvaDesigner as default } from './KonvaDesigner';

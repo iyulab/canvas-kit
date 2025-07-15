@@ -1,7 +1,10 @@
 export interface Shape {
+  id?: string;
   x: number;
   y: number;
-  color?: string;
+  fill?: string;
+  stroke?: string;
+  strokeWidth?: number;
   type: string;
 }
 
@@ -16,11 +19,19 @@ export interface Circle extends Shape {
   type: 'circle';
 }
 
+export interface Text extends Shape {
+  text: string;
+  fontSize?: number;
+  fontFamily?: string;
+  align?: 'left' | 'center' | 'right';
+  type: 'text';
+}
+
 // 확장성을 고려한 객체 타입
 export type DrawingObject =
   | Rect
   | Circle
-  // | Text
+  | Text
   // | Image
   // | Path
   ;
