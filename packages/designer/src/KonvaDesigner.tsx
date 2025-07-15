@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Stage, Layer, Rect, Circle, Text, Transformer } from 'react-konva';
-import { Scene, CommandHistory, MoveCommand, ResizeCommand, CopyCommand, CutCommand, PasteCommand, DuplicateCommand, Clipboard } from '@canvas-kit/core';
-import type { DrawingObject, Rect as RectType, Circle as CircleType, Text as TextType } from '@canvas-kit/core';
+import { Scene, CommandHistory, MoveCommand, ResizeCommand, CopyCommand, CutCommand, PasteCommand, DuplicateCommand, Clipboard, SelectionUtils } from '@canvas-kit/core';
+import type { DrawingObject, Rect as RectType, Circle as CircleType, Text as TextType, Point, SelectionMode } from '@canvas-kit/core';
 import Konva from 'konva';
 import { SelectionBox } from './SelectionBox';
 
@@ -373,42 +373,45 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
     }, [selectedIds, objects, scene, commandHistory, onSceneChange, onSelectionChange]);
 
     // Rectangle Selection 처리
-    const handleRectangleSelection = useCallback((selectedObjects: DrawingObject[]) => {
-        const newSelectedIds = selectedObjects.map(obj => getObjectId(obj));
+    const handleRectangleSelection = useCallback((rect: { x: number, y: number, width: number, height: number }, mode: SelectionMode = 'replace') => {
+        const rectSelection = SelectionUtils.getObjectsInRect(rect, objects, 'complete');
+        const currentSelection = objects.filter(obj => selectedIds.includes(getObjectId(obj)));
+        const newSelection = SelectionUtils.updateSelection(currentSelection, rectSelection, mode);
+
+        const newSelectedIds = newSelection.map(obj => getObjectId(obj));
         setSelectedIds(newSelectedIds);
 
         // 선택된 객체들을 콜백으로 전달
         if (onSelectionChange) {
-            onSelectionChange(selectedObjects);
+            onSelectionChange(newSelection);
         }
-    }, [onSelectionChange]);
+    }, [objects, selectedIds, onSelectionChange]);
 
-    // 선택 처리
+    // 선택 처리 - SelectionUtils 사용
     const handleSelect = (id: string, e: Konva.KonvaEventObject<MouseEvent>) => {
         const isCtrlPressed = e.evt.ctrlKey || e.evt.metaKey;
+        const isShiftPressed = e.evt.shiftKey;
 
-        let newSelectedIds: string[];
-
-        if (enableMultiSelect && isCtrlPressed) {
-            // 멀티 선택 모드
-            if (selectedIds.includes(id)) {
-                newSelectedIds = selectedIds.filter(sid => sid !== id);
-            } else {
-                newSelectedIds = [...selectedIds, id];
-            }
-        } else {
-            // 단일 선택 모드
-            newSelectedIds = [id];
+        // 선택 모드 결정
+        let mode: SelectionMode = 'replace';
+        if (isCtrlPressed && isShiftPressed) {
+            mode = 'subtract';
+        } else if (isCtrlPressed) {
+            mode = 'add';
         }
 
+        const obj = objects.find(o => getObjectId(o) === id);
+        if (!obj) return;
+
+        const currentSelection = objects.filter(o => selectedIds.includes(getObjectId(o)));
+        const newSelection = SelectionUtils.updateSelection(currentSelection, [obj], mode);
+
+        const newSelectedIds = newSelection.map(o => getObjectId(o));
         setSelectedIds(newSelectedIds);
 
         // 선택된 객체들을 콜백으로 전달
         if (onSelectionChange) {
-            const selectedObjects = objects.filter(obj =>
-                newSelectedIds.includes(getObjectId(obj))
-            );
-            onSelectionChange(selectedObjects);
+            onSelectionChange(newSelection);
         }
     };
 
@@ -456,7 +459,6 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
 
         const commonProps = {
             id,
-            key: id,
             onClick: (e: Konva.KonvaEventObject<MouseEvent>) => handleSelect(id, e),
             onTap: (e: Konva.KonvaEventObject<TouchEvent>) => handleSelect(id, e as any),
             draggable: true,
@@ -473,6 +475,7 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
                 const rect = obj as RectType;
                 return (
                     <Rect
+                        key={id}
                         {...commonProps}
                         x={rect.x}
                         y={rect.y}
@@ -488,6 +491,7 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
                 const circle = obj as CircleType;
                 return (
                     <Circle
+                        key={id}
                         {...commonProps}
                         x={circle.x}
                         y={circle.y}
@@ -502,6 +506,7 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
                 const text = obj as TextType;
                 return (
                     <Text
+                        key={id}
                         {...commonProps}
                         x={text.x}
                         y={text.y}

@@ -1,11 +1,12 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Rect } from 'react-konva';
 import Konva from 'konva';
-import type { DrawingObject } from '@canvas-kit/core';
+import type { DrawingObject, SelectionMode } from '@canvas-kit/core';
+import { SelectionUtils } from '@canvas-kit/core';
 
 interface SelectionBoxProps {
     isActive: boolean;
-    onSelectionComplete: (selectedObjects: DrawingObject[]) => void;
+    onSelectionComplete: (rect: { x: number, y: number, width: number, height: number }, mode: SelectionMode) => void;
     objects: readonly DrawingObject[];
 }
 
@@ -38,47 +39,13 @@ export const SelectionBox: React.FC<SelectionBoxProps> = ({
         endY: 0
     });
 
-    // 객체 ID 생성 (KonvaDesigner와 동일한 로직)
-    const getObjectId = (obj: DrawingObject): string => {
-        return obj.id || `${obj.type}-${objects.indexOf(obj)}`;
-    };
-
-    // 점이 사각형 영역 내부에 있는지 확인
-    const isPointInSelection = (x: number, y: number): boolean => {
-        const minX = Math.min(selection.startX, selection.endX);
-        const maxX = Math.max(selection.startX, selection.endX);
-        const minY = Math.min(selection.startY, selection.endY);
-        const maxY = Math.max(selection.startY, selection.endY);
-
-        return x >= minX && x <= maxX && y >= minY && y <= maxY;
-    };
-
-    // 객체가 선택 영역과 겹치는지 확인
-    const isObjectInSelection = (obj: DrawingObject): boolean => {
-        switch (obj.type) {
-            case 'rect':
-                // 사각형의 네 모서리 중 하나라도 선택 영역에 있으면 선택
-                return isPointInSelection(obj.x, obj.y) ||
-                    isPointInSelection(obj.x + obj.width, obj.y) ||
-                    isPointInSelection(obj.x, obj.y + obj.height) ||
-                    isPointInSelection(obj.x + obj.width, obj.y + obj.height);
-
-            case 'circle':
-                // 원의 중심점이 선택 영역에 있으면 선택
-                return isPointInSelection(obj.x, obj.y);
-
-            case 'text':
-                // 텍스트의 시작점이 선택 영역에 있으면 선택
-                return isPointInSelection(obj.x, obj.y);
-
-            default:
-                return false;
-        }
-    };
-
     // 드래그 시작
     const handleMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
         if (!isActive) return;
+
+        // 빈 영역에서만 Rectangle Selection 시작
+        const clickedOnEmpty = e.target === e.target.getStage();
+        if (!clickedOnEmpty) return;
 
         const stage = e.target.getStage();
         if (!stage) return;
@@ -113,14 +80,32 @@ export const SelectionBox: React.FC<SelectionBoxProps> = ({
     }, [selection.isSelecting, isActive]);
 
     // 드래그 종료
-    const handleMouseUp = useCallback(() => {
+    const handleMouseUp = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
         if (!selection.isSelecting || !isActive) return;
 
-        // 선택된 객체들 찾기
-        const selectedObjects = objects.filter(isObjectInSelection);
+        // 선택 모드 결정
+        const isCtrlPressed = e.evt.ctrlKey || e.evt.metaKey;
+        const isShiftPressed = e.evt.shiftKey;
 
-        // 선택 완료 콜백 호출
-        onSelectionComplete(selectedObjects);
+        let mode: SelectionMode = 'replace';
+        if (isCtrlPressed && isShiftPressed) {
+            mode = 'subtract';
+        } else if (isCtrlPressed) {
+            mode = 'add';
+        }
+
+        // 선택 영역 계산
+        const rect = SelectionUtils.normalizeRect(
+            selection.startX,
+            selection.startY,
+            selection.endX,
+            selection.endY
+        );
+
+        // 최소 크기 확인 (너무 작은 드래그는 무시)
+        if (rect.width > 3 && rect.height > 3) {
+            onSelectionComplete(rect, mode);
+        }
 
         // 선택 상태 리셋
         setSelection({
@@ -130,7 +115,7 @@ export const SelectionBox: React.FC<SelectionBoxProps> = ({
             endX: 0,
             endY: 0
         });
-    }, [selection.isSelecting, isActive, objects, onSelectionComplete, isObjectInSelection]);
+    }, [selection, isActive, onSelectionComplete]);
 
     // 선택 영역 계산
     const selectionRect = {
