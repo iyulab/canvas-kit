@@ -7,7 +7,14 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "pnpm --filter @canvas-kit/core build",
+    "build:all": "pnpm --filter @canvas-kit/core build && pnpm --filter canvas-kit-site build",
+    "test": "pnpm --filter \"@canvas-kit/*\" test",
+    "test:core": "pnpm --filter @canvas-kit/core test",
+    "test:viewer": "pnpm --filter @canvas-kit/viewer test",
+    "test:designer": "pnpm --filter @canvas-kit/designer test",
+    "dev:site": "pnpm --filter canvas-kit-site dev",
+    "lint": "pnpm --filter \"@canvas-kit/*\" lint"
   },
   "repository": {
     "type": "git",

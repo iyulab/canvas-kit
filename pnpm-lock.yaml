@@ -85,9 +85,15 @@ importers:
 
   site:
     dependencies:
+      '@canvas-kit/core':
+        specifier: workspace:*
+        version: link:../packages/core
       '@canvas-kit/designer':
         specifier: workspace:*
         version: link:../packages/designer
+      '@canvas-kit/viewer':
+        specifier: workspace:*
+        version: link:../packages/viewer
       next:
         specifier: 15.3.5
         version: 15.3.5(react-dom@19.1.0(react@19.1.0))(react@19.1.0)

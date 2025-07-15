@@ -2,6 +2,7 @@ export interface Shape {
   x: number;
   y: number;
   color?: string;
+  type: string;
 }
 
 export interface Rect extends Shape {
@@ -15,4 +16,11 @@ export interface Circle extends Shape {
   type: 'circle';
 }
 
-export type DrawingObject = Rect | Circle;
+// 확장성을 고려한 객체 타입
+export type DrawingObject =
+  | Rect
+  | Circle
+  // | Text
+  // | Image
+  // | Path
+  ;
