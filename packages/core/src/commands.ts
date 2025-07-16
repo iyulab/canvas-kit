@@ -15,7 +15,7 @@ export interface ICommand {
  * 객체 이동 명령
  */
 export class MoveCommand implements ICommand {
-    private object: DrawingObject;
+    private objectId: string;
     private oldPosition: { x: number; y: number };
     private newPosition: { x: number; y: number };
     private scene: Scene;
@@ -26,24 +26,32 @@ export class MoveCommand implements ICommand {
         newPosition: { x: number; y: number },
         scene: Scene
     ) {
-        this.object = object;
-        this.oldPosition = oldPosition;
-        this.newPosition = newPosition;
+        this.objectId = object.id || `${object.type}-${Date.now()}`;
+        this.oldPosition = { ...oldPosition };
+        this.newPosition = { ...newPosition };
         this.scene = scene;
     }
 
     execute(): void {
-        this.object.x = this.newPosition.x;
-        this.object.y = this.newPosition.y;
+        const objects = this.scene.getObjects();
+        const obj = objects.find(o => o.id === this.objectId);
+        if (obj) {
+            obj.x = this.newPosition.x;
+            obj.y = this.newPosition.y;
+        }
     }
 
     undo(): void {
-        this.object.x = this.oldPosition.x;
-        this.object.y = this.oldPosition.y;
+        const objects = this.scene.getObjects();
+        const obj = objects.find(o => o.id === this.objectId);
+        if (obj) {
+            obj.x = this.oldPosition.x;
+            obj.y = this.oldPosition.y;
+        }
     }
 
     getDescription(): string {
-        return `Move ${this.object.type} object`;
+        return `Move object`;
     }
 }
 
@@ -51,40 +59,50 @@ export class MoveCommand implements ICommand {
  * 객체 크기 변경 명령
  */
 export class ResizeCommand implements ICommand {
-    private object: DrawingObject;
+    private objectId: string;
     private oldSize: any;
     private newSize: any;
+    private scene: Scene;
 
     constructor(object: DrawingObject, oldSize: any, newSize: any, scene: Scene) {
-        this.object = object;
+        this.objectId = object.id || `${object.type}-${Date.now()}`;
         this.oldSize = { ...oldSize };
         this.newSize = { ...newSize };
+        this.scene = scene;
     }
 
     execute(): void {
-        if (this.object.type === 'rect') {
-            (this.object as any).width = this.newSize.width;
-            (this.object as any).height = this.newSize.height;
-        } else if (this.object.type === 'circle') {
-            (this.object as any).radius = this.newSize.radius;
+        const objects = this.scene.getObjects();
+        const obj = objects.find(o => o.id === this.objectId);
+        if (!obj) return;
+
+        if (obj.type === 'rect') {
+            (obj as any).width = this.newSize.width;
+            (obj as any).height = this.newSize.height;
+        } else if (obj.type === 'circle') {
+            (obj as any).radius = this.newSize.radius;
         }
-        this.object.x = this.newSize.x;
-        this.object.y = this.newSize.y;
+        obj.x = this.newSize.x;
+        obj.y = this.newSize.y;
     }
 
     undo(): void {
-        if (this.object.type === 'rect') {
-            (this.object as any).width = this.oldSize.width;
-            (this.object as any).height = this.oldSize.height;
-        } else if (this.object.type === 'circle') {
-            (this.object as any).radius = this.oldSize.radius;
+        const objects = this.scene.getObjects();
+        const obj = objects.find(o => o.id === this.objectId);
+        if (!obj) return;
+
+        if (obj.type === 'rect') {
+            (obj as any).width = this.oldSize.width;
+            (obj as any).height = this.oldSize.height;
+        } else if (obj.type === 'circle') {
+            (obj as any).radius = this.oldSize.radius;
         }
-        this.object.x = this.oldSize.x;
-        this.object.y = this.oldSize.y;
+        obj.x = this.oldSize.x;
+        obj.y = this.oldSize.y;
     }
 
     getDescription(): string {
-        return `Resize ${this.object.type} object`;
+        return `Resize object`;
     }
 }
 

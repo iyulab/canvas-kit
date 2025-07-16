@@ -94,9 +94,20 @@ export default function SelectionPage() {
         });
 
         setScene(newScene);
+
+        // 디버깅: Scene 객체들의 ID 확인
+        console.log('🚀 [SELECTION PAGE] Scene created with objects:',
+            newScene.getObjects().map(obj => ({
+                id: obj.id,
+                type: obj.type,
+                position: { x: obj.x, y: obj.y }
+            }))
+        );
     }, []);
 
     const handleSelectionChange = (objects: DrawingObject[]) => {
+        console.log('🔥 [SELECTION PAGE] Selection changed:', objects);
+        console.log('🔥 [SELECTION PAGE] Number of selected objects:', objects.length);
         setSelectedObjects(objects);
     };
 
@@ -154,11 +165,12 @@ export default function SelectionPage() {
                         <div className="bg-blue-50 rounded-lg p-4">
                             <h3 className="font-semibold mb-2">선택 방법</h3>
                             <ul className="text-sm text-gray-700 space-y-1">
-                                <li>• <strong>클릭</strong>: 단일 객체 선택</li>
-                                <li>• <strong>드래그</strong>: 범위 선택 (완전 포함)</li>
+                                <li>• <strong>클릭</strong>: 단일 객체 선택 (파란색 테두리)</li>
+                                <li>• <strong>빈 영역 드래그</strong>: 범위 선택 (파란색 박스)</li>
                                 <li>• <strong>Ctrl+클릭</strong>: 객체 추가 선택</li>
                                 <li>• <strong>Ctrl+Shift+클릭</strong>: 객체 선택 해제</li>
-                                <li>• <strong>겹친 객체</strong>: 최상위 객체 선택</li>
+                                <li>• <strong>Ctrl+드래그</strong>: 범위 추가 선택</li>
+                                <li>• <strong>Transformer</strong>: 선택된 객체 크기 조절</li>
                             </ul>
                         </div>
                         <div className="bg-green-50 rounded-lg p-4">
@@ -212,8 +224,8 @@ export default function SelectionPage() {
                                 <div
                                     key={index}
                                     className={`p-3 rounded border transition-all cursor-pointer ${isSelected
-                                            ? 'bg-blue-100 border-blue-300 shadow-sm'
-                                            : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                                        ? 'bg-blue-100 border-blue-300 shadow-sm'
+                                        : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                                         }`}
                                 >
                                     <div className="flex items-center gap-3">

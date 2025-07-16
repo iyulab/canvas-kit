@@ -39,6 +39,14 @@ export interface Line extends Shape {
   type: 'line';
 }
 
+// Canvas 선택을 위한 특별한 타입
+export interface CanvasSelection {
+  type: 'canvas';
+  id: 'canvas';
+  x: 0;
+  y: 0;
+}
+
 // 확장성을 고려한 객체 타입
 export type DrawingObject =
   | Rect
@@ -48,3 +56,6 @@ export type DrawingObject =
   | Line
   // | Image
   ;
+
+// 선택 가능한 모든 요소 타입 (DrawingObject + Canvas)
+export type SelectableElement = DrawingObject | CanvasSelection;

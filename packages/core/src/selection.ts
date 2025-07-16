@@ -282,8 +282,13 @@ export class SelectionUtils {
             case 'path':
                 // For paths, check if point is within the bounding box
                 if (obj.points && obj.points.length > 0) {
-                    const xs = obj.points.map(p => p.x);
-                    const ys = obj.points.map(p => p.y);
+                    // points is [x1, y1, x2, y2, ...]
+                    const xs: number[] = [];
+                    const ys: number[] = [];
+                    for (let i = 0; i < obj.points.length; i += 2) {
+                        xs.push(obj.points[i]);
+                        ys.push(obj.points[i + 1]);
+                    }
                     const minX = Math.min(...xs);
                     const maxX = Math.max(...xs);
                     const minY = Math.min(...ys);
@@ -297,8 +302,13 @@ export class SelectionUtils {
             case 'line':
                 // For lines, check if point is within the bounding box
                 if (obj.points && obj.points.length > 0) {
-                    const xs = obj.points.map(p => p.x);
-                    const ys = obj.points.map(p => p.y);
+                    // points is [x1, y1, x2, y2, ...]
+                    const xs: number[] = [];
+                    const ys: number[] = [];
+                    for (let i = 0; i < obj.points.length; i += 2) {
+                        xs.push(obj.points[i]);
+                        ys.push(obj.points[i + 1]);
+                    }
                     const minX = Math.min(...xs);
                     const maxX = Math.max(...xs);
                     const minY = Math.min(...ys);
@@ -344,8 +354,13 @@ export class SelectionUtils {
             case 'path':
             case 'line':
                 if (obj.points && obj.points.length > 0) {
-                    const xs = obj.points.map(p => p.x);
-                    const ys = obj.points.map(p => p.y);
+                    // points is [x1, y1, x2, y2, ...]
+                    const xs: number[] = [];
+                    const ys: number[] = [];
+                    for (let i = 0; i < obj.points.length; i += 2) {
+                        xs.push(obj.points[i]);
+                        ys.push(obj.points[i + 1]);
+                    }
                     const minX = Math.min(...xs);
                     const maxX = Math.max(...xs);
                     const minY = Math.min(...ys);

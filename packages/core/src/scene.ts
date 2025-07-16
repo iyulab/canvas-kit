@@ -3,6 +3,7 @@ import { HitTest } from './hit-test';
 
 export class Scene {
   private objects: DrawingObject[] = [];
+  private idCounter = 0;
 
   add(obj: DrawingObject): void {
     if (!obj || typeof obj !== 'object') {
@@ -13,6 +14,11 @@ export class Scene {
     if (!obj.type) {
       console.warn('Object must have a type property');
       return;
+    }
+
+    // ID가 없는 경우 자동 생성
+    if (!obj.id) {
+      obj.id = `${obj.type}-${++this.idCounter}`;
     }
 
     this.objects.push(obj);
@@ -58,6 +64,7 @@ export class Scene {
   copy(): Scene {
     const newScene = new Scene();
     newScene.objects = [...this.objects.map(obj => ({ ...obj }))];
+    newScene.idCounter = this.idCounter;
     return newScene;
   }
 
