@@ -15,8 +15,15 @@ const samples = [
         href: '/samples/designer',
         title: '✨ Konva Designer',
         description: 'Konva.js 기반 완전한 편집 환경 (Rectangle Selection 포함)',
-        status: 'new',
+        status: 'stable',
         features: ['드래그 & 드롭', 'Rectangle Selection', 'Transformer 핸들', '멀티 선택']
+    },
+    {
+        href: '/samples/advanced-designer',
+        title: '🛠️ Advanced Designer',
+        description: '선택, 그리기, 텍스트 편집이 통합된 고급 디자이너',
+        status: 'new',
+        features: ['통합 툴바', '다중 도구 지원', '실시간 미리보기', '키보드 단축키']
     },
     {
         href: '/samples/hit-test',
@@ -38,6 +45,13 @@ const samples = [
         description: '자유 그리기 및 브러시 도구 (Konva 스타일)',
         status: 'new',
         features: ['펜/브러시 모드', '색상 & 두께 조절', '스무스 곡선', '지우개 도구']
+    },
+    {
+        href: '/samples/editable-text',
+        title: '📝 Editable Text',
+        description: '편집 가능한 텍스트 및 스타일링 (Konva 스타일)',
+        status: 'new',
+        features: ['더블클릭 편집', '실시간 스타일링', '폰트 & 색상 변경', '크기 조정']
     },
     {
         href: '/samples/animation',
@@ -187,10 +201,18 @@ export default function SamplesHub() {
                 <p className="text-gray-700 mb-4">
                     Konva.js의 데모에서 영감을 받아 Canvas-Kit에 구현한 새로운 기능들입니다:
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 text-sm">
                     <div className="bg-white p-3 rounded">
                         <strong>✏️ Free Drawing</strong>
                         <p className="text-gray-600 mt-1">Konva의 Free Drawing 데모를 참고한 자유 그리기 기능</p>
+                    </div>
+                    <div className="bg-white p-3 rounded">
+                        <strong>📝 Editable Text</strong>
+                        <p className="text-gray-600 mt-1">편집 가능한 텍스트와 실시간 스타일링 기능</p>
+                    </div>
+                    <div className="bg-white p-3 rounded">
+                        <strong>🛠️ Advanced Designer</strong>
+                        <p className="text-gray-600 mt-1">모든 기능이 통합된 올인원 디자인 툴</p>
                     </div>
                     <div className="bg-white p-3 rounded">
                         <strong>🎬 Animation</strong>
