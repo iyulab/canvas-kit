@@ -2,6 +2,12 @@
 
 프레임워크 중립적인 웹 컴포넌트 기반 캔버스 라이브러리로 필수적인 편집 기능을 제공합니다.
 
+[![Deploy Canvas-Kit Site to Pages](https://github.com/iyulab/canvas-kit/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/iyulab/canvas-kit/actions/workflows/deploy-pages.yml)
+
+## 🌐 Live Demo
+
+Canvas-Kit의 모든 기능을 확인해보세요: **[https://iyulab.github.io/canvas-kit](https://iyulab.github.io/canvas-kit)**
+
 ## ✨ Features
 
 - 🎨 **Essential Elements** - Rectangle, Circle, Text, Image, Drawing
