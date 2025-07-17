@@ -73,7 +73,7 @@ export default function HitTestSample() {
         }));
 
         setHitResults({ hitObject, allObjects });
-    }, [testPoint, scene]);
+    }, [testPoint]); // scene 제거
 
     // Handle canvas click
     const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -135,15 +135,19 @@ export default function HitTestSample() {
                 ctx.setLineDash([]);
             }
         });
-    }, [testPoint, hitResults]);
+    }, [testPoint, hitResults.allObjects]); // hitResults 전체가 아닌 hitResults.allObjects만 의존성으로 설정
 
-    // Update overlay when dependencies change
+    // Update hit test when test point changes
+    React.useEffect(() => {
+        performHitTest();
+    }, [performHitTest]); // performHitTest를 의존성으로 유지하되 performHitTest의 의존성을 최소화
+
+    // Draw overlay when test point or hit results change
     React.useEffect(() => {
         if (overlayRef.current) {
             drawOverlay(overlayRef.current);
         }
-        performHitTest();
-    }, [testPoint, drawOverlay, performHitTest]);
+    }, [drawOverlay]); // drawOverlay를 의존성으로 유지하되 drawOverlay의 의존성을 최소화
 
     return (
         <main className="container mx-auto p-8">

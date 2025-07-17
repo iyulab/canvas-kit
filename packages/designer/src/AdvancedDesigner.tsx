@@ -332,53 +332,60 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
             )}
 
             <div className="flex-1 relative">
-                <Stage
-                    width={width}
-                    height={height}
-                    ref={stageRef}
-                    onClick={handleStageClick}
-                >
-                    <Layer>
-                        {/* 기본 디자이너 (선택, 도형 등) */}
-                        {currentTool === 'select' && (
-                            <KonvaDesigner
-                                width={width}
-                                height={height}
-                                scene={scene}
-                                onSceneChange={onSceneChange}
-                                onSelectionChange={onSelectionChange}
-                                commandHistory={commandHistory}
-                            />
-                        )}
+                {/* 기본 디자이너 (선택, 도형 등) */}
+                {currentTool === 'select' && (
+                    <KonvaDesigner
+                        width={width}
+                        height={height}
+                        scene={scene}
+                        onSceneChange={onSceneChange}
+                        onSelectionChange={onSelectionChange}
+                        enableKeyboardShortcuts={enableKeyboardShortcuts}
+                        enableTextEditing={true}
+                        enableMultiSelect={true}
+                        enableRectangleSelection={true}
+                    />
+                )}
 
-                        {/* 자유 그리기 */}
-                        {currentTool === 'draw' && (
-                            <FreeDrawingCanvas
-                                width={width}
-                                height={height}
-                                tool={drawingTool}
-                            />
-                        )}
+                {/* 자유 그리기 및 텍스트를 위한 별도 Stage */}
+                {(currentTool === 'draw' || currentTool === 'text') && (
+                    <Stage
+                        width={width}
+                        height={height}
+                        ref={stageRef}
+                        onClick={handleStageClick}
+                    >
+                        <Layer>
+                            {/* 자유 그리기 */}
+                            {currentTool === 'draw' && (
+                                <FreeDrawingCanvas
+                                    width={width}
+                                    height={height}
+                                    tool={drawingTool}
+                                    stage={stageRef.current || undefined}
+                                />
+                            )}
 
-                        {/* 텍스트 객체들 */}
-                        {currentTool === 'text' && textObjects.map(text => (
-                            <EditableText
-                                key={text.id}
-                                x={text.x}
-                                y={text.y}
-                                text={text.text}
-                                fontSize={text.fontSize}
-                                fontFamily={text.fontFamily}
-                                fill={text.fill}
-                                width={text.width}
-                                isSelected={selectedTextId === text.id}
-                                onTextChange={(newText) => handleTextChange(text.id, newText)}
-                                onSelect={() => handleTextSelect(text.id)}
-                                onTransform={(attrs) => handleTextTransform(text.id, attrs)}
-                            />
-                        ))}
-                    </Layer>
-                </Stage>
+                            {/* 텍스트 객체들 */}
+                            {currentTool === 'text' && textObjects.map(text => (
+                                <EditableText
+                                    key={text.id}
+                                    x={text.x}
+                                    y={text.y}
+                                    text={text.text}
+                                    fontSize={text.fontSize}
+                                    fontFamily={text.fontFamily}
+                                    fill={text.fill}
+                                    width={text.width}
+                                    isSelected={selectedTextId === text.id}
+                                    onTextChange={(newText) => handleTextChange(text.id, newText)}
+                                    onSelect={() => handleTextSelect(text.id)}
+                                    onTransform={(attrs) => handleTextTransform(text.id, attrs)}
+                                />
+                            ))}
+                        </Layer>
+                    </Stage>
+                )}
 
                 {/* 툴 안내 */}
                 {currentTool === 'text' && (

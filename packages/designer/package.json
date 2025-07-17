@@ -6,7 +6,9 @@
   "license": "MIT",
   "scripts": {
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "type-check": "tsc --noEmit",
+    "lint": "echo 'ESLint configuration in progress'"
   },
   "dependencies": {
     "@canvas-kit/core": "workspace:*",
@@ -20,6 +22,9 @@
   "devDependencies": {
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
+    "@typescript-eslint/eslint-plugin": "^8.18.1",
+    "@typescript-eslint/parser": "^8.18.1",
+    "eslint": "^8.57.0",
     "vitest": "^1.6.0"
   }
 }

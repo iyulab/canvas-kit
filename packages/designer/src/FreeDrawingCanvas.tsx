@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Stage, Layer, Line, Image as KonvaImage } from 'react-konva';
+import { Layer, Line } from 'react-konva';
 import Konva from 'konva';
 
 export interface DrawingTool {
@@ -13,16 +13,16 @@ interface FreeDrawingCanvasProps {
     height: number;
     tool: DrawingTool;
     onPathsChange?: (paths: any[]) => void;
+    stage?: Konva.Stage; // Stage 참조를 props로 받음
 }
 
 export const FreeDrawingCanvas: React.FC<FreeDrawingCanvasProps> = ({
     width,
     height,
     tool,
-    onPathsChange
+    onPathsChange,
+    stage
 }) => {
-    const stageRef = useRef<Konva.Stage>(null);
-    const layerRef = useRef<Konva.Layer>(null);
     const [isPaint, setIsPaint] = useState(false);
     const [paths, setPaths] = useState<any[]>([]);
     const [currentPath, setCurrentPath] = useState<any>(null);
@@ -51,8 +51,8 @@ export const FreeDrawingCanvas: React.FC<FreeDrawingCanvasProps> = ({
         // 터치 디바이스에서 스크롤 방지
         e.evt.preventDefault();
 
-        const stage = e.target.getStage();
-        const point = stage?.getPointerPosition();
+        const stageRef = e.target.getStage();
+        const point = stageRef?.getPointerPosition();
         if (!point) return;
 
         const newPoints = currentPath.points.concat([point.x, point.y]);
@@ -77,14 +77,20 @@ export const FreeDrawingCanvas: React.FC<FreeDrawingCanvasProps> = ({
         setCurrentPath(null);
     }, [isPaint, currentPath, paths, onPathsChange]);
 
-    // 캔버스 클리어
-    const clearCanvas = useCallback(() => {
-        setPaths([]);
-        setCurrentPath(null);
-        if (onPathsChange) {
-            onPathsChange([]);
-        }
-    }, [onPathsChange]);
+    // Stage에 이벤트 리스너 추가
+    useEffect(() => {
+        if (!stage) return;
+
+        stage.on('mousedown touchstart', handleMouseDown);
+        stage.on('mousemove touchmove', handleMouseMove);
+        stage.on('mouseup touchend', handleMouseUp);
+
+        return () => {
+            stage.off('mousedown touchstart', handleMouseDown);
+            stage.off('mousemove touchmove', handleMouseMove);
+            stage.off('mouseup touchend', handleMouseUp);
+        };
+    }, [stage, handleMouseDown, handleMouseMove, handleMouseUp]);
 
     // 경로를 Line 컴포넌트로 렌더링
     const renderPath = useCallback((path: any) => {
@@ -104,40 +110,27 @@ export const FreeDrawingCanvas: React.FC<FreeDrawingCanvasProps> = ({
         );
     }, []);
 
+    // Stage 없이 Layer 내용만 반환
     return (
-        <div>
-            <Stage
-                ref={stageRef}
-                width={width}
-                height={height}
-                onMouseDown={handleMouseDown}
-                onMousemove={handleMouseMove}
-                onMouseup={handleMouseUp}
-                onTouchStart={handleMouseDown}
-                onTouchMove={handleMouseMove}
-                onTouchEnd={handleMouseUp}
-            >
-                <Layer ref={layerRef}>
-                    {/* 완성된 경로들 */}
-                    {paths.map(renderPath)}
+        <>
+            {/* 완성된 경로들 */}
+            {paths.map(renderPath)}
 
-                    {/* 현재 그리고 있는 경로 */}
-                    {currentPath && (
-                        <Line
-                            points={currentPath.points}
-                            stroke={currentPath.color}
-                            strokeWidth={currentPath.width}
-                            tension={0.5}
-                            lineCap="round"
-                            lineJoin="round"
-                            globalCompositeOperation={
-                                currentPath.tool === 'brush' ? 'source-over' : 'destination-out'
-                            }
-                        />
-                    )}
-                </Layer>
-            </Stage>
-        </div>
+            {/* 현재 그리고 있는 경로 */}
+            {currentPath && (
+                <Line
+                    points={currentPath.points}
+                    stroke={currentPath.color}
+                    strokeWidth={currentPath.width}
+                    tension={0.5}
+                    lineCap="round"
+                    lineJoin="round"
+                    globalCompositeOperation={
+                        currentPath.tool === 'brush' ? 'source-over' : 'destination-out'
+                    }
+                />
+            )}
+        </>
     );
 };
 

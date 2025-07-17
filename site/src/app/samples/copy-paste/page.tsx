@@ -301,7 +301,6 @@ export default function CopyPasteSample() {
                     scene={scene}
                     onSceneChange={handleSceneChange}
                     onSelectionChange={handleSelectionChange}
-                    commandHistory={commandHistory}
                     enableMultiSelect={true}
                     enableRectangleSelection={true}
                 />
