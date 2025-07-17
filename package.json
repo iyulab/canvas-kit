@@ -27,6 +27,11 @@
     "url": "https://github.com/iyulab/canvas-kit/issues"
   },
   "homepage": "https://github.com/iyulab/canvas-kit#readme",
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=9.0.0"
+  },
   "devDependencies": {
     "eslint": "^9.31.0",
     "eslint-config-prettier": "^10.1.5",
