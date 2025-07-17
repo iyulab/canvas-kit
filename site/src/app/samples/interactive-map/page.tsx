@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Scene } from '@canvas-kit/core';
 
-const Viewer = dynamic(() => import('@canvas-kit/viewer').then(mod => mod.Viewer), {
+const Viewer = dynamic(() => import('@canvas-kit/designer').then(mod => mod.AdvancedDesigner), {
     ssr: false,
 });
 
@@ -20,8 +20,8 @@ interface Room {
 
 interface Building {
     rooms: Room[];
-    corridors: any[];
-    exits: any[];
+    corridors: Record<string, unknown>[];
+    exits: Record<string, unknown>[];
 }
 
 export default function InteractiveBuildingMapPage() {
@@ -43,13 +43,13 @@ export default function InteractiveBuildingMapPage() {
         exits: []
     });
 
-    const roomColors = {
+    const roomColors = useMemo(() => ({
         office: { free: '#e3f2fd', occupied: '#ffcdd2', stroke: '#1976d2' },
         meeting: { free: '#f3e5f5', occupied: '#ffcdd2', stroke: '#7b1fa2' },
         common: { free: '#e8f5e8', occupied: '#ffcdd2', stroke: '#388e3c' },
         restroom: { free: '#fff3e0', occupied: '#ffcdd2', stroke: '#f57c00' },
         storage: { free: '#fafafa', occupied: '#ffcdd2', stroke: '#616161' }
-    };
+    }), []);
 
     // Initialize building layout
     useEffect(() => {
@@ -319,8 +319,8 @@ export default function InteractiveBuildingMapPage() {
                                         <button
                                             onClick={() => toggleRoomOccupancy(selectedRoom.id)}
                                             className={`mt-2 w-full px-3 py-1 rounded text-sm transition-colors ${selectedRoom.occupied
-                                                    ? 'bg-green-500 hover:bg-green-600 text-white'
-                                                    : 'bg-red-500 hover:bg-red-600 text-white'
+                                                ? 'bg-green-500 hover:bg-green-600 text-white'
+                                                : 'bg-red-500 hover:bg-red-600 text-white'
                                                 }`}
                                         >
                                             Mark as {selectedRoom.occupied ? 'Available' : 'Occupied'}
@@ -413,8 +413,8 @@ export default function InteractiveBuildingMapPage() {
                                     key={room.id}
                                     onClick={() => setSelectedRoom(room)}
                                     className={`p-3 rounded border cursor-pointer transition-colors ${selectedRoom?.id === room.id
-                                            ? 'bg-yellow-50 border-yellow-300'
-                                            : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                                        ? 'bg-yellow-50 border-yellow-300'
+                                        : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                                         }`}
                                 >
                                     <div className="flex items-center justify-between">

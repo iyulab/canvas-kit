@@ -11,7 +11,7 @@ const KonvaDesigner = dynamic(() => import('@canvas-kit/designer').then(mod => (
 
 export default function DesignerSample() {
   const [scene, setScene] = useState<Scene | undefined>();
-  const [selectedObjects, setSelectedObjects] = useState<any[]>([]);
+  const [selectedObjects, setSelectedObjects] = useState<unknown[]>([]);
 
   useEffect(() => {
     const newScene = new Scene();
@@ -56,7 +56,7 @@ export default function DesignerSample() {
     setScene(newScene);
   };
 
-  const handleSelectionChange = (objects: any[]) => {
+  const handleSelectionChange = (objects: unknown[]) => {
     setSelectedObjects(objects);
   };
 
@@ -130,7 +130,7 @@ export default function DesignerSample() {
               <div className="space-y-1 max-h-20 overflow-y-auto">
                 {selectedObjects.map((obj, idx) => (
                   <div key={idx} className="text-xs bg-white px-2 py-1 rounded">
-                    {obj.type} ({Math.round(obj.x)}, {Math.round(obj.y)})
+                    {String((obj as Record<string, unknown>).type)} ({Math.round(Number((obj as Record<string, unknown>).x))}, {Math.round(Number((obj as Record<string, unknown>).y))})
                   </div>
                 ))}
               </div>

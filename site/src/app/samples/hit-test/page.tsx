@@ -7,12 +7,12 @@ import { Scene } from '@canvas-kit/core';
 import { SelectionUtils } from '@canvas-kit/core';
 import type { DrawingObject } from '@canvas-kit/core';
 
-const Viewer = dynamic(() => import('@canvas-kit/viewer').then(mod => ({ default: mod.Viewer })), {
+const Viewer = dynamic(() => import('@canvas-kit/designer').then(mod => ({ default: mod.AdvancedDesigner })), {
     ssr: false,
 });
 
 export default function HitTestSample() {
-    const [scene, setScene] = useState(() => {
+    const [scene] = useState(() => {
         const newScene = new Scene();
 
         // Sample objects for hit testing
@@ -73,7 +73,7 @@ export default function HitTestSample() {
         }));
 
         setHitResults({ hitObject, allObjects });
-    }, [testPoint]); // scene 제거 - scene은 useState로 관리되어 안정적
+    }, [testPoint, scene]);
 
     // Handle canvas click
     const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {

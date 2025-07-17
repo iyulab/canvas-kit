@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Scene, DrawingObject, SelectionUtils, Point, SelectionMode } from '@canvas-kit/core';
+import { Scene, DrawingObject, SelectionUtils, Point } from '@canvas-kit/core';
 import dynamic from 'next/dynamic';
 
 const KonvaDesigner = dynamic(() => import('@canvas-kit/designer').then(mod => ({ default: mod.KonvaDesigner })), {

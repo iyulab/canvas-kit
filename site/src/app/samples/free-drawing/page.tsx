@@ -61,7 +61,7 @@ export default function FreeDrawingPage() {
                     <div className="p-4 bg-blue-50 rounded border">
                         <h4 className="font-medium text-blue-700 mb-2">🛠️ Tool Selection</h4>
                         <p className="text-sm text-gray-600">
-                            상단 툴바에서 "✏️ 그리기" 도구를 선택하거나 <kbd className="px-1 py-0.5 bg-white rounded border text-xs">2</kbd> 키를 누르세요
+                            상단 툴바에서 &quot;✏️ 그리기&quot; 도구를 선택하거나 <kbd className="px-1 py-0.5 bg-white rounded border text-xs">2</kbd> 키를 누르세요
                         </p>
                     </div>
                     <div className="p-4 bg-green-50 rounded border">

@@ -90,7 +90,7 @@ export default function EditableTextPage() {
                     <div className="p-4 bg-blue-50 rounded border">
                         <h4 className="font-medium text-blue-700 mb-2">🛠️ Tool Selection</h4>
                         <p className="text-sm text-gray-600">
-                            상단 툴바에서 "📝 텍스트" 도구를 선택하거나 <kbd className="px-1 py-0.5 bg-white rounded border text-xs">3</kbd> 키를 누르세요
+                            상단 툴바에서 &quot;📝 텍스트&quot; 도구를 선택하거나 <kbd className="px-1 py-0.5 bg-white rounded border text-xs">3</kbd> 키를 누르세요
                         </p>
                     </div>
                     <div className="p-4 bg-green-50 rounded border">
@@ -165,7 +165,7 @@ export default function EditableTextPage() {
                                     {index + 1}. {obj.type} - {obj.id}
                                     {obj.type === 'text' && (obj as Text).text && (
                                         <span className="ml-2 text-blue-600">
-                                            "{(obj as Text).text}"
+                                            &quot;{(obj as Text).text}&quot;
                                         </span>
                                     )}
                                 </div>

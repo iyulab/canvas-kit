@@ -2,10 +2,10 @@
 
 import dynamic from 'next/dynamic';
 import { Scene } from '@canvas-kit/core';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 
-const Viewer = dynamic(() => import('@canvas-kit/viewer').then(mod => mod.Viewer), {
+const AdvancedDesigner = dynamic(() => import('@canvas-kit/designer').then(mod => mod.AdvancedDesigner), {
     ssr: false,
 });
 
@@ -13,7 +13,7 @@ export default function BasicRenderingSample() {
     const [scene, setScene] = useState<Scene | undefined>();
     const [objectCount, setObjectCount] = useState({ rect: 2, circle: 2 });
 
-    const createScene = () => {
+    const createScene = useCallback(() => {
         const newScene = new Scene();
 
         console.log('Creating scene with counts:', objectCount);
@@ -51,11 +51,11 @@ export default function BasicRenderingSample() {
 
         console.log('Final scene objects:', newScene.getObjects());
         setScene(newScene);
-    };
+    }, [objectCount]);
 
     useEffect(() => {
         createScene();
-    }, [objectCount]);
+    }, [objectCount, createScene]);
 
     const addObject = (type: 'rect' | 'circle') => {
         setObjectCount((prev: { rect: number; circle: number }) => ({
@@ -165,9 +165,9 @@ export default function BasicRenderingSample() {
                                 <div className="mt-2">
                                     <p><strong>Objects:</strong></p>
                                     <ul className="ml-4">
-                                        {scene.getObjects().map((obj: any, index: number) => (
+                                        {scene.getObjects().map((obj, index: number) => (
                                             <li key={index}>
-                                                {obj.type} at ({obj.x}, {obj.y}) - fill: {obj.fill}
+                                                {String(obj.type)} at ({String(obj.x)}, {String(obj.y)}) - fill: {String(obj.fill)}
                                             </li>
                                         ))}
                                     </ul>
@@ -177,7 +177,7 @@ export default function BasicRenderingSample() {
 
                         {scene && (
                             <div className="border border-gray-300 rounded overflow-hidden">
-                                <Viewer width={600} height={400} scene={scene} />
+                                <AdvancedDesigner width={600} height={400} scene={scene} />
                             </div>
                         )}
 

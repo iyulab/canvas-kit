@@ -5,31 +5,14 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Scene } from '@canvas-kit/core';
 
-const Viewer = dynamic(() => import('@canvas-kit/viewer').then(mod => mod.Viewer), {
+const AdvancedDesigner = dynamic(() => import('@canvas-kit/designer').then(mod => mod.AdvancedDesigner), {
     ssr: false,
 });
-
-interface AnimationObject {
-    id: string;
-    initialProps: any;
-    targetProps: any;
-    duration: number;
-    startTime: number;
-    easing: 'linear' | 'easeIn' | 'easeOut' | 'easeInOut';
-}
-
-const easing = {
-    linear: (t: number) => t,
-    easeIn: (t: number) => t * t,
-    easeOut: (t: number) => t * (2 - t),
-    easeInOut: (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
-};
 
 export default function AnimationPage() {
     const [scene, setScene] = useState<Scene>(new Scene());
     const [isPlaying, setIsPlaying] = useState(false);
-    const [animations, setAnimations] = useState<AnimationObject[]>([]);
-    const animationRef = useRef<number | undefined>();
+    const animationRef = useRef<number | undefined>(undefined);
     const lastTimeRef = useRef<number>(0);
 
     // Initialize scene with objects
@@ -85,10 +68,6 @@ export default function AnimationPage() {
         setScene(newScene);
     }, []);
 
-    const interpolate = useCallback((start: number, end: number, progress: number) => {
-        return start + (end - start) * progress;
-    }, []);
-
     const animate = useCallback((currentTime: number) => {
         if (!isPlaying) return;
 
@@ -111,9 +90,9 @@ export default function AnimationPage() {
                     break;
 
                 case 2: // Scaling circle
-                    if (obj.type === 'circle') {
+                    if (obj.type === 'circle' && 'radius' in obj) {
                         const scale = 20 + Math.sin(currentTime * 0.004) * 15;
-                        newObj = { ...newObj, radius: scale };
+                        newObj = { ...newObj, radius: scale } as typeof obj;
                     }
                     break;
 
@@ -271,8 +250,8 @@ export default function AnimationPage() {
                                 <button
                                     onClick={isPlaying ? stopAnimation : startAnimation}
                                     className={`w-full px-4 py-2 rounded font-medium transition-colors ${isPlaying
-                                            ? 'bg-red-500 hover:bg-red-600 text-white'
-                                            : 'bg-green-500 hover:bg-green-600 text-white'
+                                        ? 'bg-red-500 hover:bg-red-600 text-white'
+                                        : 'bg-green-500 hover:bg-green-600 text-white'
                                         }`}
                                 >
                                     {isPlaying ? '⏹️ Stop' : '▶️ Play'}
@@ -338,7 +317,7 @@ export default function AnimationPage() {
                             {isPlaying && <span className="text-green-500 ml-2">🟢 Playing</span>}
                         </h3>
                         <div className="relative">
-                            <Viewer scene={scene} width={800} height={400} />
+                            <AdvancedDesigner scene={scene} width={800} height={400} />
                         </div>
                     </div>
 
