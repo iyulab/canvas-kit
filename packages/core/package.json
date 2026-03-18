@@ -1,9 +1,19 @@
 {
   "name": "@canvas-kit/core",
-  "version": "0.0.1",
+  "version": "0.1.0",
+  "description": "UI-independent data engine for canvas-kit",
+  "license": "MIT",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts",
     "test": "vitest run",

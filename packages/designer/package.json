@@ -1,10 +1,21 @@
 {
   "name": "@canvas-kit/designer",
-  "version": "0.0.0",
-  "main": "./src/index.tsx",
-  "types": "./src/index.tsx",
+  "version": "0.1.0",
+  "description": "Complete canvas editor UI powered by Konva.js",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
   "license": "MIT",
   "scripts": {
+    "build": "tsup src/index.tsx --format cjs,esm --dts --external react --external react-dom --external konva --external react-konva --external @canvas-kit/core --external @canvas-kit/viewer",
     "test": "vitest run",
     "test:watch": "vitest",
     "type-check": "tsc --noEmit",
@@ -12,12 +23,15 @@
   },
   "dependencies": {
     "@canvas-kit/core": "workspace:*",
-    "@canvas-kit/viewer": "workspace:*",
-    "konva": "^9.3.22",
-    "react-konva": "^19.0.7"
+    "@canvas-kit/viewer": "workspace:*"
   },
   "peerDependencies": {
-    "react": "^19.0.0"
+    "react": "^18.0.0 || ^19.0.0",
+    "konva": "^9.0.0",
+    "react-konva": "^18.0.0 || ^19.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "devDependencies": {
     "@types/react": "^19.1.8",
@@ -25,6 +39,9 @@
     "@typescript-eslint/eslint-plugin": "^8.18.1",
     "@typescript-eslint/parser": "^8.18.1",
     "eslint": "^8.57.0",
+    "konva": "^9.3.22",
+    "react-konva": "^19.0.7",
+    "tsup": "^8.0.2",
     "vitest": "^1.6.0"
   }
 }

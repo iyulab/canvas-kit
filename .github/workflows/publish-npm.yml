@@ -1,0 +1,63 @@
+name: Publish to npm
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Package to publish (core, viewer, designer, all)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - core
+          - viewer
+          - designer
+          - all
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: |
+          pnpm --filter @canvas-kit/core build
+          pnpm --filter @canvas-kit/viewer build
+          pnpm --filter @canvas-kit/designer build
+
+      - name: Test packages
+        run: |
+          pnpm --filter @canvas-kit/core test
+          pnpm --filter @canvas-kit/viewer test
+
+      - name: Publish core
+        if: ${{ inputs.package == 'core' || inputs.package == 'all' }}
+        run: pnpm --filter @canvas-kit/core publish --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish viewer
+        if: ${{ inputs.package == 'viewer' || inputs.package == 'all' }}
+        run: pnpm --filter @canvas-kit/viewer publish --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish designer
+        if: ${{ inputs.package == 'designer' || inputs.package == 'all' }}
+        run: pnpm --filter @canvas-kit/designer publish --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
