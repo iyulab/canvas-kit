@@ -27,7 +27,7 @@
 **Files:**
 - Modify: `packages/core/package.json`
 
-- [ ] **Step 1: package.json에 exports, files 필드 추가 및 버전 0.1.0으로 업데이트**
+- [x] **Step 1: package.json에 exports, files 필드 추가 및 버전 0.1.0으로 업데이트**
 
 현재 상태: main/module/types는 있으나 exports 필드 없음. publishConfig 있음. 버전 0.0.1.
 
@@ -53,17 +53,17 @@
 }
 ```
 
-- [ ] **Step 2: 빌드 테스트**
+- [x] **Step 2: 빌드 테스트**
 
 Run: `cd packages/core && pnpm build`
 Expected: dist/ 에 index.js, index.mjs, index.d.ts 생성
 
-- [ ] **Step 3: 테스트 실행**
+- [x] **Step 3: 테스트 실행**
 
 Run: `pnpm test:core`
 Expected: 모든 테스트 통과
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add packages/core/package.json
@@ -123,21 +123,21 @@ viewer는 React 컴포넌트이므로 JSX를 보존하지 않고 컴파일해야
 - peerDependencies React 범위를 18+19로 확장
 - devDependencies에 tsup 추가 필요
 
-- [ ] **Step 2: devDependencies에 tsup 추가**
+- [x] **Step 2: devDependencies에 tsup 추가**
 
 Run: `cd packages/viewer && pnpm add -D tsup`
 
-- [ ] **Step 3: 빌드 테스트**
+- [x] **Step 3: 빌드 테스트**
 
 Run: `cd packages/core && pnpm build && cd ../viewer && pnpm build`
 Expected: packages/viewer/dist/ 에 index.js, index.mjs, index.d.ts 생성
 
-- [ ] **Step 4: 테스트 실행**
+- [x] **Step 4: 테스트 실행**
 
 Run: `pnpm test:viewer`
 Expected: 모든 테스트 통과
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/viewer/package.json pnpm-lock.yaml
@@ -200,17 +200,17 @@ designer는 React + Konva 의존. 모두 external로 처리.
 - tsup 빌드 추가 (모든 peer deps를 external로)
 - devDependencies에 tsup 추가 필요
 
-- [ ] **Step 2: devDependencies에 tsup 추가, konva/react-konva를 devDependencies로도 유지**
+- [x] **Step 2: devDependencies에 tsup 추가, konva/react-konva를 devDependencies로도 유지**
 
 Run: `cd packages/designer && pnpm add -D tsup konva react-konva`
 (konva/react-konva를 peerDeps로 올리되 devDeps에도 남겨 로컬 개발/테스트용)
 
-- [ ] **Step 3: 빌드 테스트**
+- [x] **Step 3: 빌드 테스트**
 
 Run: `cd packages/core && pnpm build && cd ../viewer && pnpm build && cd ../designer && pnpm build`
 Expected: packages/designer/dist/ 에 index.js, index.mjs, index.d.ts 생성
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add packages/designer/package.json pnpm-lock.yaml
@@ -242,7 +242,7 @@ git commit -m "chore(designer): add build setup for npm publish v0.1.0"
 **Files:**
 - Create: `.github/workflows/publish-npm.yml`
 
-- [ ] **Step 1: publish 워크플로우 작성**
+- [x] **Step 1: publish 워크플로우 작성**
 
 ```yaml
 name: Publish to npm
@@ -309,7 +309,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add .github/workflows/publish-npm.yml
@@ -320,12 +320,12 @@ git commit -m "ci: add npm publish workflow"
 
 ### Task 6: 로컬 빌드 전체 검증
 
-- [ ] **Step 1: 전체 빌드 + 테스트**
+- [x] **Step 1: 전체 빌드 + 테스트**
 
 Run: `pnpm build:all && pnpm test:packages`
 Expected: 모든 패키지 빌드 성공, 테스트 통과
 
-- [ ] **Step 2: dry-run publish 확인**
+- [x] **Step 2: dry-run publish 확인**
 
 Run:
 ```bash
@@ -335,7 +335,7 @@ cd ../designer && pnpm publish --dry-run
 ```
 Expected: 각 패키지의 포함 파일 목록 확인, workspace:* 가 버전으로 치환되었는지 확인
 
-- [ ] **Step 3: 최종 Commit**
+- [x] **Step 3: 최종 Commit**
 
 ```bash
 git add -A

@@ -61,29 +61,29 @@
 - [x] 스마트 객체 감지 (타입별 최적화)
 - [x] 기존 기능과 완벽 호환
 
-**3A-2. Undo/Redo 시스템** ⚡ **다음 작업**
-- [ ] **Command 패턴 구현**
-  - [ ] ICommand 인터페이스 정의
-  - [ ] MoveCommand, ResizeCommand, AddCommand, DeleteCommand
-  - [ ] CommandHistory 클래스 (스택 관리)
-- [ ] **키보드 단축키**
-  - [ ] Ctrl+Z (Undo) 이벤트 핸들러
-  - [ ] Ctrl+Y (Redo) 이벤트 핸들러
-  - [ ] 브라우저 기본 동작 방지
-- [ ] **메모리 관리**
-  - [ ] 최대 50단계 히스토리
-  - [ ] 메모리 사용량 제한 (100MB)
-  - [ ] 자동 가비지 컬렉션
+**3A-2. Undo/Redo 시스템** ✅ **완료**
+- [x] **Command 패턴 구현**
+  - [x] ICommand 인터페이스 정의
+  - [x] MoveCommand, ResizeCommand, AddCommand, DeleteCommand
+  - [x] CommandHistory 클래스 (스택 관리)
+- [x] **키보드 단축키**
+  - [x] Ctrl+Z (Undo) 이벤트 핸들러
+  - [x] Ctrl+Y (Redo) 이벤트 핸들러
+  - [x] 브라우저 기본 동작 방지
+- [x] **메모리 관리**
+  - [x] 최대 50단계 히스토리
+  - [x] 메모리 사용량 제한 (100MB)
+  - [x] 자동 가비지 컬렉션
 
 **3A-3. Copy/Paste 기능**
-- [ ] **클립보드 관리**
-  - [ ] 내부 클립보드 시스템
-  - [ ] 다중 객체 복사 지원
-  - [ ] JSON 직렬화/역직렬화
-- [ ] **키보드 단축키**
-  - [ ] Ctrl+C (Copy) 구현
-  - [ ] Ctrl+V (Paste) 구현
-  - [ ] 자동 오프셋 적용 (10px)
+- [x] **클립보드 관리**
+  - [x] 내부 클립보드 시스템
+  - [x] 다중 객체 복사 지원
+  - [x] JSON 직렬화/역직렬화
+- [x] **키보드 단축키**
+  - [x] Ctrl+C (Copy) 구현
+  - [x] Ctrl+V (Paste) 구현
+  - [x] 자동 오프셋 적용 (10px)
 
 ### **🥈 우선순위 2: 편집 편의성 (Day 2)**
 
@@ -161,9 +161,9 @@
 - **성능**: 100개 객체에서 60fps 목표
 
 ### **다음 마일스톤**
-1. ✅ **완료 (2025-07-15)**: Undo/Redo + Copy/Paste 시스템 구현
-2. **다음 (2025-07-16)**: Snap & Alignment 기능
-3. **이후 (2025-07-17)**: 애니메이션 + 성능 최적화
+1. ✅ **완료**: Undo/Redo + Copy/Paste + rect/circle 도구 + CommandHistory 이벤트
+2. **다음**: Snap & Alignment 시스템
+3. **이후**: 이미지 지원 + 성능 최적화
 
 ---
 
