@@ -12,7 +12,9 @@
       "require": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "license": "MIT",
   "scripts": {
     "build": "tsup src/index.tsx --format cjs,esm --dts --external react --external react-dom --external konva --external react-konva --external @canvas-kit/core --external @canvas-kit/viewer",
@@ -26,22 +28,22 @@
     "@canvas-kit/viewer": "workspace:*"
   },
   "peerDependencies": {
+    "konva": "^10.0.0",
     "react": "^18.0.0 || ^19.0.0",
-    "konva": "^9.0.0",
-    "react-konva": "^18.0.0 || ^19.0.0"
+    "react-konva": "^19.0.0"
   },
   "publishConfig": {
     "access": "public"
   },
   "devDependencies": {
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6",
-    "@typescript-eslint/eslint-plugin": "^8.18.1",
-    "@typescript-eslint/parser": "^8.18.1",
-    "eslint": "^8.57.0",
-    "konva": "^9.3.22",
-    "react-konva": "^19.0.7",
-    "tsup": "^8.0.2",
-    "vitest": "^1.6.0"
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@typescript-eslint/eslint-plugin": "^8.59.3",
+    "@typescript-eslint/parser": "^8.59.3",
+    "eslint": "^10.3.0",
+    "konva": "^10.3.0",
+    "react-konva": "^19.2.4",
+    "tsup": "^8.5.1",
+    "vitest": "^4.1.6"
   }
 }

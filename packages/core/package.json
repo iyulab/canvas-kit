@@ -13,7 +13,9 @@
       "require": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts",
     "test": "vitest run",
@@ -22,14 +24,14 @@
     "lint": "echo 'ESLint configuration in progress'"
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^8.18.1",
-    "@typescript-eslint/parser": "^8.18.1",
-    "eslint": "^8.57.0",
-    "jsdom": "^26.1.0",
-    "tsup": "^8.0.2",
-    "typescript": "^5.2.2",
-    "vitest": "^1.6.0",
-    "vitest-canvas-mock": "^0.3.3"
+    "@typescript-eslint/eslint-plugin": "^8.59.3",
+    "@typescript-eslint/parser": "^8.59.3",
+    "eslint": "^10.3.0",
+    "jsdom": "^29.1.1",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6",
+    "vitest-canvas-mock": "^1.1.4"
   },
   "publishConfig": {
     "access": "public"

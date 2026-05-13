@@ -9,17 +9,17 @@ const mockRender = vi.fn();
 const mockClear = vi.fn();
 
 vi.mock('@canvas-kit/core', () => {
-  const MockCanvasKitRenderer = vi.fn().mockImplementation(() => ({
-    render: mockRender,
-    clear: mockClear,
-  }));
+  const MockCanvasKitRenderer = vi.fn(function (this: Record<string, unknown>) {
+    this.render = mockRender;
+    this.clear = mockClear;
+  });
 
-  const MockScene = vi.fn().mockImplementation(() => ({
-    add: vi.fn(),
-    remove: vi.fn(),
-    getObjects: vi.fn(() => []),
-    clear: vi.fn(),
-  }));
+  const MockScene = vi.fn(function (this: Record<string, unknown>) {
+    this.add = vi.fn();
+    this.remove = vi.fn();
+    this.getObjects = vi.fn(() => []);
+    this.clear = vi.fn();
+  });
 
   return {
     CanvasKitRenderer: MockCanvasKitRenderer,
