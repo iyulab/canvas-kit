@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Stage, Layer } from 'react-konva';
-import { Scene, CommandHistory } from '@canvas-kit/core';
-import type { DrawingObject } from '@canvas-kit/core';
+import { Stage, Layer, Rect as KonvaRect, Circle as KonvaCircle } from 'react-konva';
+import { Scene, CommandHistory, AddCommand } from '@canvas-kit/core';
+import type { DrawingObject, CommandHistoryEvent } from '@canvas-kit/core';
 import { KonvaDesigner } from './KonvaDesigner';
 import { FreeDrawingCanvas } from './FreeDrawingCanvas';
 import { EditableText } from './EditableText';
@@ -23,6 +23,15 @@ export interface TextObject {
     fontFamily: string;
     fill: string;
     width: number;
+}
+
+interface PreviewShape {
+    type: 'rect' | 'circle';
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    radius: number;
 }
 
 export interface AdvancedDesignerProps {
@@ -56,15 +65,33 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
     });
     const [textObjects, setTextObjects] = useState<TextObject[]>([]);
     const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
+    const [historyState, setHistoryState] = useState({
+        canUndo: commandHistory.canUndo(),
+        canRedo: commandHistory.canRedo()
+    });
+
+    const [drawStartPoint, setDrawStartPoint] = useState<{ x: number; y: number } | null>(null);
+    const [previewShape, setPreviewShape] = useState<PreviewShape | null>(null);
 
     const stageRef = useRef<any>(null);
+
+    // CommandHistory 이벤트 구독 (폴링 대체)
+    useEffect(() => {
+        if (!enableUndoRedo) return;
+
+        const handleHistoryChange = (event: CommandHistoryEvent) => {
+            setHistoryState({ canUndo: event.canUndo, canRedo: event.canRedo });
+        };
+
+        commandHistory.addEventListener(handleHistoryChange);
+        return () => commandHistory.removeEventListener(handleHistoryChange);
+    }, [commandHistory, enableUndoRedo]);
 
     // 키보드 단축키 처리
     useEffect(() => {
         if (!enableKeyboardShortcuts) return;
 
         const handleKeyDown = (e: KeyboardEvent) => {
-            // 입력 필드에서는 단축키 비활성화
             if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
                 return;
             }
@@ -75,46 +102,21 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
             if (enableUndoRedo && isCtrl) {
                 if (e.key === 'z' && !isShift) {
                     e.preventDefault();
-                    if (commandHistory.canUndo()) {
-                        commandHistory.undo();
-                        console.log('Undo executed via keyboard shortcut');
-                    }
-                } else if ((e.key === 'y') || (e.key === 'z' && isShift)) {
+                    commandHistory.undo();
+                } else if (e.key === 'y' || (e.key === 'z' && isShift)) {
                     e.preventDefault();
-                    if (commandHistory.canRedo()) {
-                        commandHistory.redo();
-                        console.log('Redo executed via keyboard shortcut');
-                    }
+                    commandHistory.redo();
                 }
             }
 
-            // 도구 전환 단축키
             if (!isCtrl && !isShift) {
                 switch (e.key) {
-                    case '1':
-                        e.preventDefault();
-                        setCurrentTool('select');
-                        break;
-                    case '2':
-                        e.preventDefault();
-                        setCurrentTool('draw');
-                        break;
-                    case '3':
-                        e.preventDefault();
-                        setCurrentTool('text');
-                        break;
-                    case '4':
-                        e.preventDefault();
-                        setCurrentTool('rect');
-                        break;
-                    case '5':
-                        e.preventDefault();
-                        setCurrentTool('circle');
-                        break;
-                    case 'Escape':
-                        e.preventDefault();
-                        setCurrentTool('select');
-                        break;
+                    case '1': e.preventDefault(); setCurrentTool('select'); break;
+                    case '2': e.preventDefault(); setCurrentTool('draw'); break;
+                    case '3': e.preventDefault(); setCurrentTool('text'); break;
+                    case '4': e.preventDefault(); setCurrentTool('rect'); break;
+                    case '5': e.preventDefault(); setCurrentTool('circle'); break;
+                    case 'Escape': e.preventDefault(); setCurrentTool('select'); break;
                 }
             }
         };
@@ -123,24 +125,10 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [enableKeyboardShortcuts, enableUndoRedo, commandHistory]);
 
-    // 디버깅을 위한 command history 상태 추적
-    useEffect(() => {
-        const handleHistoryChange = () => {
-            console.log('Command history changed:', {
-                canUndo: commandHistory.canUndo(),
-                canRedo: commandHistory.canRedo()
-            });
-        };
-
-        // CommandHistory에 이벤트 리스너가 있다면 추가
-        // 현재는 수동으로 상태 변경을 감지하기 위해 interval 사용
-        const interval = setInterval(handleHistoryChange, 1000);
-
-        return () => clearInterval(interval);
-    }, [commandHistory]);
-
     const handleToolChange = useCallback((tool: DesignerTool) => {
         setCurrentTool(tool);
+        setDrawStartPoint(null);
+        setPreviewShape(null);
         if (tool !== 'text') {
             setSelectedTextId(null);
         }
@@ -150,43 +138,124 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
         setDrawingTool(tool);
     }, []);
 
-    // 텍스트 관련 핸들러들
     const handleTextChange = useCallback((id: string, newText: string) => {
-        setTextObjects(prev => prev.map(text =>
-            text.id === id ? { ...text, text: newText } : text
-        ));
+        setTextObjects(prev => prev.map(t => t.id === id ? { ...t, text: newText } : t));
     }, []);
 
     const handleTextSelect = useCallback((id: string) => {
-        setSelectedTextId(selectedTextId === id ? null : id);
-    }, [selectedTextId]);
+        setSelectedTextId(prev => prev === id ? null : id);
+    }, []);
 
     const handleTextTransform = useCallback((id: string, attrs: any) => {
-        setTextObjects(prev => prev.map(text =>
-            text.id === id ? { ...text, ...attrs } : text
-        ));
+        setTextObjects(prev => prev.map(t => t.id === id ? { ...t, ...attrs } : t));
     }, []);
 
     const addTextAtPosition = useCallback((x: number, y: number) => {
         const newText: TextObject = {
             id: `text-${Date.now()}`,
-            x,
-            y,
+            x, y,
             text: 'New text',
             fontSize: 20,
             fontFamily: 'Arial',
             fill: '#000000',
             width: 200
         };
-
         setTextObjects(prev => [...prev, newText]);
         setSelectedTextId(newText.id);
     }, []);
 
-    // 스테이지 클릭 핸들러
+    const handleShapeMouseDown = useCallback((e: any) => {
+        const stage = e.target.getStage();
+        if (!stage) return;
+        const pos = stage.getPointerPosition();
+        if (!pos) return;
+        setDrawStartPoint({ x: pos.x, y: pos.y });
+    }, []);
+
+    const handleShapeMouseMove = useCallback((e: any) => {
+        if (!drawStartPoint) return;
+        const stage = e.target.getStage();
+        if (!stage) return;
+        const pos = stage.getPointerPosition();
+        if (!pos) return;
+
+        if (currentTool === 'rect') {
+            const x = Math.min(drawStartPoint.x, pos.x);
+            const y = Math.min(drawStartPoint.y, pos.y);
+            const w = Math.abs(pos.x - drawStartPoint.x);
+            const h = Math.abs(pos.y - drawStartPoint.y);
+            setPreviewShape({ type: 'rect', x, y, width: w, height: h, radius: 0 });
+        } else if (currentTool === 'circle') {
+            const dx = pos.x - drawStartPoint.x;
+            const dy = pos.y - drawStartPoint.y;
+            const radius = Math.sqrt(dx * dx + dy * dy);
+            setPreviewShape({
+                type: 'circle',
+                x: drawStartPoint.x,
+                y: drawStartPoint.y,
+                width: 0,
+                height: 0,
+                radius
+            });
+        }
+    }, [drawStartPoint, currentTool]);
+
+    const handleShapeMouseUp = useCallback(() => {
+        if (!drawStartPoint || !previewShape) {
+            setDrawStartPoint(null);
+            setPreviewShape(null);
+            return;
+        }
+
+        const minSize = 5;
+        if (previewShape.type === 'rect' && (previewShape.width < minSize || previewShape.height < minSize)) {
+            setDrawStartPoint(null);
+            setPreviewShape(null);
+            return;
+        }
+        if (previewShape.type === 'circle' && previewShape.radius < minSize) {
+            setDrawStartPoint(null);
+            setPreviewShape(null);
+            return;
+        }
+
+        let newObj: DrawingObject;
+        if (previewShape.type === 'rect') {
+            newObj = {
+                id: `rect-${Date.now()}`,
+                type: 'rect',
+                x: previewShape.x,
+                y: previewShape.y,
+                width: previewShape.width,
+                height: previewShape.height,
+                fill: '#4A90E2',
+                stroke: '#2563EB',
+                strokeWidth: 1
+            };
+        } else {
+            newObj = {
+                id: `circle-${Date.now()}`,
+                type: 'circle',
+                x: previewShape.x,
+                y: previewShape.y,
+                radius: previewShape.radius,
+                fill: '#E24A4A',
+                stroke: '#B91C1C',
+                strokeWidth: 1
+            };
+        }
+
+        const cmd = new AddCommand(newObj, scene);
+        commandHistory.execute(cmd);
+        onSceneChange?.(scene);
+
+        setDrawStartPoint(null);
+        setPreviewShape(null);
+    }, [drawStartPoint, previewShape, scene, commandHistory, onSceneChange]);
+
     const handleStageClick = useCallback((e: any) => {
         if (currentTool === 'text') {
-            const pos = e.target.getStage().getPointerPosition();
+            const pos = e.target.getStage()?.getPointerPosition();
             if (pos) {
                 addTextAtPosition(pos.x, pos.y);
             }
@@ -206,12 +275,13 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
         '#ff00ff', '#00ffff', '#ff8800', '#8800ff', '#888888'
     ];
 
+    const isDrawingShapeTool = currentTool === 'rect' || currentTool === 'circle';
+
     return (
         <div className="flex flex-col h-full">
             {showToolbar && (
                 <div className="bg-gray-100 border-b border-gray-300 p-3">
                     <div className="flex items-center gap-4">
-                        {/* 툴 선택 */}
                         <div className="flex gap-1">
                             {tools.map(tool => (
                                 <button
@@ -234,62 +304,41 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
                             ))}
                         </div>
 
-                        {/* 그리기 도구 설정 */}
                         {currentTool === 'draw' && (
                             <>
                                 <div className="h-6 w-px bg-gray-300" />
-
-                                {/* 브러시/지우개 */}
                                 <div className="flex gap-1">
                                     <button
                                         onClick={() => handleDrawingToolChange({ ...drawingTool, mode: 'brush' })}
-                                        className={`px-2 py-1 rounded text-sm ${drawingTool.mode === 'brush'
-                                            ? 'bg-blue-500 text-white'
-                                            : 'bg-white border border-gray-300'
-                                            }`}
+                                        className={`px-2 py-1 rounded text-sm ${drawingTool.mode === 'brush' ? 'bg-blue-500 text-white' : 'bg-white border border-gray-300'}`}
                                     >
                                         🖌️ 브러시
                                     </button>
                                     <button
                                         onClick={() => handleDrawingToolChange({ ...drawingTool, mode: 'eraser' })}
-                                        className={`px-2 py-1 rounded text-sm ${drawingTool.mode === 'eraser'
-                                            ? 'bg-blue-500 text-white'
-                                            : 'bg-white border border-gray-300'
-                                            }`}
+                                        className={`px-2 py-1 rounded text-sm ${drawingTool.mode === 'eraser' ? 'bg-blue-500 text-white' : 'bg-white border border-gray-300'}`}
                                     >
                                         🧹 지우개
                                     </button>
                                 </div>
-
-                                {/* 색상 팔레트 */}
                                 {drawingTool.mode === 'brush' && (
                                     <div className="flex gap-1">
                                         {brushColors.map(color => (
                                             <button
                                                 key={color}
                                                 onClick={() => handleDrawingToolChange({ ...drawingTool, color })}
-                                                className={`w-6 h-6 rounded border-2 ${drawingTool.color === color
-                                                    ? 'border-gray-800'
-                                                    : 'border-gray-300'
-                                                    }`}
+                                                className={`w-6 h-6 rounded border-2 ${drawingTool.color === color ? 'border-gray-800' : 'border-gray-300'}`}
                                                 style={{ backgroundColor: color }}
                                             />
                                         ))}
                                     </div>
                                 )}
-
-                                {/* 두께 조절 */}
                                 <div className="flex items-center gap-2">
                                     <span className="text-sm text-gray-600">두께:</span>
                                     <input
-                                        type="range"
-                                        min="1"
-                                        max="20"
+                                        type="range" min="1" max="20"
                                         value={drawingTool.width}
-                                        onChange={(e) => handleDrawingToolChange({
-                                            ...drawingTool,
-                                            width: parseInt(e.target.value)
-                                        })}
+                                        onChange={(e) => handleDrawingToolChange({ ...drawingTool, width: parseInt(e.target.value) })}
                                         className="w-20"
                                     />
                                     <span className="text-sm text-gray-600 w-6">{drawingTool.width}</span>
@@ -297,28 +346,21 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
                             </>
                         )}
 
-                        {/* 실행 취소/다시 실행 */}
                         {enableUndoRedo && (
                             <>
                                 <div className="h-6 w-px bg-gray-300" />
                                 <div className="flex gap-1">
                                     <button
-                                        onClick={() => {
-                                            commandHistory.undo();
-                                            console.log('Undo executed via toolbar button');
-                                        }}
-                                        disabled={!commandHistory.canUndo()}
+                                        onClick={() => commandHistory.undo()}
+                                        disabled={!historyState.canUndo}
                                         className="px-3 py-1 rounded text-sm bg-white border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
                                         title={`실행 취소 ${enableKeyboardShortcuts ? '(Ctrl+Z)' : ''}`}
                                     >
                                         ↶ 실행 취소
                                     </button>
                                     <button
-                                        onClick={() => {
-                                            commandHistory.redo();
-                                            console.log('Redo executed via toolbar button');
-                                        }}
-                                        disabled={!commandHistory.canRedo()}
+                                        onClick={() => commandHistory.redo()}
+                                        disabled={!historyState.canRedo}
                                         className="px-3 py-1 rounded text-sm bg-white border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
                                         title={`다시 실행 ${enableKeyboardShortcuts ? '(Ctrl+Y)' : ''}`}
                                     >
@@ -332,7 +374,6 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
             )}
 
             <div className="flex-1 relative">
-                {/* 기본 디자이너 (선택, 도형 등) */}
                 {currentTool === 'select' && (
                     <KonvaDesigner
                         width={width}
@@ -347,7 +388,6 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
                     />
                 )}
 
-                {/* 자유 그리기 및 텍스트를 위한 별도 Stage */}
                 {(currentTool === 'draw' || currentTool === 'text') && (
                     <Stage
                         width={width}
@@ -356,7 +396,6 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
                         onClick={handleStageClick}
                     >
                         <Layer>
-                            {/* 자유 그리기 */}
                             {currentTool === 'draw' && (
                                 <FreeDrawingCanvas
                                     width={width}
@@ -365,8 +404,6 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
                                     stage={stageRef.current || undefined}
                                 />
                             )}
-
-                            {/* 텍스트 객체들 */}
                             {currentTool === 'text' && textObjects.map(text => (
                                 <EditableText
                                     key={text.id}
@@ -387,14 +424,58 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
                     </Stage>
                 )}
 
-                {/* 툴 안내 */}
+                {isDrawingShapeTool && (
+                    <Stage
+                        width={width}
+                        height={height}
+                        ref={stageRef}
+                        style={{ cursor: 'crosshair' }}
+                        onMouseDown={handleShapeMouseDown}
+                        onMouseMove={handleShapeMouseMove}
+                        onMouseUp={handleShapeMouseUp}
+                    >
+                        <Layer>
+                            {previewShape?.type === 'rect' && (
+                                <KonvaRect
+                                    x={previewShape.x}
+                                    y={previewShape.y}
+                                    width={previewShape.width}
+                                    height={previewShape.height}
+                                    stroke="#2563EB"
+                                    strokeWidth={1}
+                                    dash={[4, 4]}
+                                    fill="rgba(74, 144, 226, 0.1)"
+                                    listening={false}
+                                />
+                            )}
+                            {previewShape?.type === 'circle' && (
+                                <KonvaCircle
+                                    x={previewShape.x}
+                                    y={previewShape.y}
+                                    radius={previewShape.radius}
+                                    stroke="#B91C1C"
+                                    strokeWidth={1}
+                                    dash={[4, 4]}
+                                    fill="rgba(226, 74, 74, 0.1)"
+                                    listening={false}
+                                />
+                            )}
+                        </Layer>
+                    </Stage>
+                )}
+
                 {currentTool === 'text' && (
                     <div className="absolute bottom-4 left-4 bg-blue-100 border border-blue-300 rounded p-2 text-sm">
                         💡 캔버스를 클릭하여 텍스트를 추가하세요
                     </div>
                 )}
 
-                {/* 키보드 단축키 안내 */}
+                {isDrawingShapeTool && (
+                    <div className="absolute bottom-4 left-4 bg-green-100 border border-green-300 rounded p-2 text-sm">
+                        💡 드래그하여 {currentTool === 'rect' ? '사각형' : '원'}을 그리세요
+                    </div>
+                )}
+
                 {enableKeyboardShortcuts && (
                     <div className="absolute bottom-4 right-4 bg-gray-100 border border-gray-300 rounded p-3 text-xs max-w-xs">
                         <h4 className="font-medium mb-2">⌨️ 키보드 단축키</h4>
