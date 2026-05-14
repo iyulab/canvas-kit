@@ -51,6 +51,31 @@
 
 ---
 
+## ✅ **Phase 3D: 샘플 사이트 정상화** (2026-05-14)
+
+<details>
+<summary><strong>완료된 샘플 수정 내용</strong></summary>
+
+### **라이브러리 버그 수정**
+- [x] KonvaDesigner: React 19 `key` spread 오류 수정 (Rect/Circle/Line/Text 모두)
+- [x] KonvaDesigner: `onSelectionChange` 무한 렌더 루프 수정 (useRef 안정 ref 패턴)
+- [x] AdvancedDesigner: rect/circle/draw/text 도구 전환 시 기존 씬 객체 유지 (배경 레이어)
+- [x] viewer.tsx: debug `console.log` 제거
+
+### **샘플 페이지 수정**
+- [x] basic-rendering: `AdvancedDesigner` → 실제 `Viewer` 패키지 교체, debug 코드 제거
+- [x] advanced-designer: `CommandHistory` 이벤트 구독으로 사이드바 실시간 업데이트
+- [x] copy-paste: `handlePaste`/`handleDuplicate` 이중 적용 버그 수정
+- [x] selection-test: `handleSelectionChange`/`handleCanvasSelection` `useCallback` 래핑
+
+### **검증 결과 (2026-05-14)**
+- 테스트: 78/78 통과
+- 샘플 11개 전체 콘솔 에러 0개
+
+</details>
+
+---
+
 ## 🚀 **Phase 3: 사용자 경험 고도화** (진행중 - 2025-07-15~18)
 
 ### **🥇 우선순위 1: 핵심 UX 기능 (Day 1) - 25% 완료**
