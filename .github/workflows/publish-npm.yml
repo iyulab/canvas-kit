@@ -14,14 +14,15 @@ on:
           - designer
           - all
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
 
