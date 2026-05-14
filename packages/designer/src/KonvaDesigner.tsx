@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useLayoutEffect } from 'react';
 import { Stage, Layer, Rect, Circle, Line, Text, Transformer } from 'react-konva';
 import { DrawingObject, Scene } from '@canvas-kit/core';
 import type Konva from 'konva';
@@ -43,12 +43,16 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
         transformer.nodes(selectedNodes);
     }, [selectedIds]);
 
-    // Notify selection change
+    // Stable ref for onSelectionChange — avoids infinite re-render loop
+    // when callers pass a non-memoized callback
+    const onSelectionChangeRef = useRef(onSelectionChange);
+    useLayoutEffect(() => { onSelectionChangeRef.current = onSelectionChange; });
+
     useEffect(() => {
         const objects = scene.getObjects();
         const selectedObjects = objects.filter(obj => obj.id && selectedIds.includes(obj.id));
-        onSelectionChange?.(selectedObjects);
-    }, [selectedIds, scene, onSelectionChange]);
+        onSelectionChangeRef.current?.(selectedObjects);
+    }, [selectedIds, scene]);
 
     // Mouse event handlers
     const handleStageMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -101,7 +105,6 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
         const isSelected = obj.id ? selectedIds.includes(obj.id) : false;
 
         const commonProps = {
-            key: obj.id,
             id: obj.id,
             x: obj.x,
             y: obj.y,
@@ -113,6 +116,7 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
             case 'rect':
                 return (
                     <Rect
+                        key={obj.id}
                         {...commonProps}
                         width={obj.width}
                         height={obj.height}
@@ -124,6 +128,7 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
             case 'circle':
                 return (
                     <Circle
+                        key={obj.id}
                         {...commonProps}
                         radius={obj.radius}
                         fill={obj.fill}
@@ -134,6 +139,7 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
             case 'line':
                 return (
                     <Line
+                        key={obj.id}
                         {...commonProps}
                         points={obj.points}
                         stroke={obj.stroke || 'black'}
@@ -143,6 +149,7 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
             case 'text':
                 return (
                     <Text
+                        key={obj.id}
                         {...commonProps}
                         text={obj.text}
                         fontSize={obj.fontSize || 16}

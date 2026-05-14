@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { Scene, CommandHistory } from '@canvas-kit/core';
 import { AdvancedDesigner } from '@canvas-kit/designer';
@@ -45,10 +45,17 @@ export default function AdvancedDesignerPage() {
 
     const [commandHistory] = useState(() => new CommandHistory());
     const [selectedObjects, setSelectedObjects] = useState<DrawingObject[]>([]);
+    const [, forceUpdate] = useState(0);
 
-    const handleSceneChange = useCallback((newScene: Scene) => {
-        // Scene이 변경될 때의 로직
-        console.log('Scene changed:', newScene.getObjects().length, 'objects');
+    // CommandHistory 이벤트 구독 → 씬 변경 시 사이드바 업데이트
+    useEffect(() => {
+        const handler = () => forceUpdate(v => v + 1);
+        commandHistory.addEventListener(handler);
+        return () => commandHistory.removeEventListener(handler);
+    }, [commandHistory]);
+
+    const handleSceneChange = useCallback((_newScene: Scene) => {
+        forceUpdate(v => v + 1);
     }, []);
 
     const handleSelectionChange = useCallback((objects: DrawingObject[]) => {

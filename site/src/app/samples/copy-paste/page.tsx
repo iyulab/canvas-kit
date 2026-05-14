@@ -105,16 +105,8 @@ export default function CopyPasteSample() {
         const clipboard = Clipboard.getInstance();
         if (!clipboard.isEmpty()) {
             const pasteCommand = new PasteCommand(scene);
-            commandHistory.execute(pasteCommand);
-
-            // Scene 업데이트 
-            const newScene = new Scene();
-            scene.getObjects().forEach((obj: DrawingObject) => newScene.add(obj));
-            const pastedObjects = clipboard.paste();
-            pastedObjects.forEach((obj: DrawingObject) => newScene.add(obj));
-
-            handleSceneChange(newScene);
-            setSelectedObjects(pastedObjects);
+            commandHistory.execute(pasteCommand); // scene에 직접 추가됨
+            handleSceneChange(scene); // 동일 참조지만 setHistoryStatus로 리렌더 트리거
             updateClipboardStatus();
         }
     }, [scene, commandHistory, handleSceneChange, updateClipboardStatus]);
@@ -123,21 +115,8 @@ export default function CopyPasteSample() {
     const handleDuplicate = useCallback(() => {
         if (selectedObjects.length > 0) {
             const duplicateCommand = new DuplicateCommand(selectedObjects, scene);
-            commandHistory.execute(duplicateCommand);
-
-            // Scene 업데이트
-            const newScene = new Scene();
-            scene.getObjects().forEach((obj: DrawingObject) => newScene.add(obj));
-            const duplicatedObjects = selectedObjects.map((obj: DrawingObject) => ({
-                ...obj,
-                id: `${obj.type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                x: obj.x + 20,
-                y: obj.y + 20
-            }));
-            duplicatedObjects.forEach((obj: DrawingObject) => newScene.add(obj));
-
-            handleSceneChange(newScene);
-            setSelectedObjects(duplicatedObjects);
+            commandHistory.execute(duplicateCommand); // scene에 직접 추가됨
+            handleSceneChange(scene); // 동일 참조지만 setHistoryStatus로 리렌더 트리거
         }
     }, [selectedObjects, scene, commandHistory, handleSceneChange]);
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Scene } from '@canvas-kit/core';
 import dynamic from 'next/dynamic';
@@ -75,18 +75,17 @@ export default function SelectionTestPage() {
         setScene(newScene);
     }, []);
 
-    const handleSelectionChange = (objects: DrawingObject[]) => {
+    const handleSelectionChange = useCallback((objects: DrawingObject[]) => {
         setSelectedObjects(objects);
-        // 객체가 선택되면 캔버스 선택 해제
         if (objects.length > 0) {
             setIsCanvasSelected(false);
         }
-    };
+    }, []);
 
-    const handleCanvasSelection = () => {
+    const handleCanvasSelection = useCallback(() => {
         setIsCanvasSelected(true);
         setSelectedObjects([]);
-    };
+    }, []);
 
     if (!scene) {
         return <div>Loading...</div>;

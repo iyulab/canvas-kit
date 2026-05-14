@@ -5,7 +5,7 @@ import { Scene } from '@canvas-kit/core';
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 
-const AdvancedDesigner = dynamic(() => import('@canvas-kit/designer').then(mod => mod.AdvancedDesigner), {
+const Viewer = dynamic(() => import('@canvas-kit/viewer').then(mod => mod.Viewer), {
     ssr: false,
 });
 
@@ -16,11 +16,8 @@ export default function BasicRenderingSample() {
     const createScene = useCallback(() => {
         const newScene = new Scene();
 
-        console.log('Creating scene with counts:', objectCount);
-
-        // 사각형들 추가
         for (let i = 0; i < objectCount.rect; i++) {
-            const rect = {
+            newScene.add({
                 type: 'rect' as const,
                 x: 50 + i * 80,
                 y: 50 + i * 30,
@@ -29,14 +26,11 @@ export default function BasicRenderingSample() {
                 fill: `hsl(${i * 60}, 70%, 50%)`,
                 stroke: '#333',
                 strokeWidth: 1
-            };
-            console.log('Adding rect:', rect);
-            newScene.add(rect);
+            });
         }
 
-        // 원들 추가
         for (let i = 0; i < objectCount.circle; i++) {
-            const circle = {
+            newScene.add({
                 type: 'circle' as const,
                 x: 150 + i * 80,
                 y: 200 + i * 40,
@@ -44,12 +38,9 @@ export default function BasicRenderingSample() {
                 fill: `hsl(${180 + i * 60}, 70%, 50%)`,
                 stroke: '#333',
                 strokeWidth: 1
-            };
-            console.log('Adding circle:', circle);
-            newScene.add(circle);
+            });
         }
 
-        console.log('Final scene objects:', newScene.getObjects());
         setScene(newScene);
     }, [objectCount]);
 
@@ -79,7 +70,7 @@ export default function BasicRenderingSample() {
                 </Link>
                 <h1 className="text-3xl font-bold mb-2">🎨 Basic Rendering Sample</h1>
                 <p className="text-gray-600">
-                    Viewer 패키지를 사용한 기본 캔버스 렌더링 테스트입니다.
+                    Viewer 패키지를 사용한 기본 캔버스 렌더링 테스트입니다. Canvas 2D API로 씬을 정적으로 렌더링합니다.
                 </p>
             </div>
 
@@ -90,7 +81,6 @@ export default function BasicRenderingSample() {
                         <h3 className="text-lg font-semibold mb-4">컨트롤</h3>
 
                         <div className="space-y-4">
-                            {/* 사각형 컨트롤 */}
                             <div>
                                 <label className="block text-sm font-medium mb-2">
                                     사각형 ({objectCount.rect}개)
@@ -111,7 +101,6 @@ export default function BasicRenderingSample() {
                                 </div>
                             </div>
 
-                            {/* 원 컨트롤 */}
                             <div>
                                 <label className="block text-sm font-medium mb-2">
                                     원 ({objectCount.circle}개)
@@ -145,7 +134,7 @@ export default function BasicRenderingSample() {
                             <ul className="text-sm text-gray-700 space-y-1">
                                 <li>• Scene 객체 생성 및 관리</li>
                                 <li>• DrawingObject 추가/제거</li>
-                                <li>• Canvas2D 렌더링</li>
+                                <li>• Canvas 2D 렌더링</li>
                                 <li>• 동적 색상 및 위치</li>
                             </ul>
                         </div>
@@ -157,27 +146,14 @@ export default function BasicRenderingSample() {
                     <div className="border-2 border-gray-200 rounded-lg p-4 bg-white">
                         <h3 className="text-lg font-medium mb-4">Canvas Viewer</h3>
 
-                        {/* 디버그 정보 */}
                         <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-sm">
                             <p><strong>Scene Status:</strong> {scene ? '✅ Loaded' : '❌ Not loaded'}</p>
                             <p><strong>Objects in Scene:</strong> {scene?.getObjects().length || 0}</p>
-                            {scene && scene.getObjects().length > 0 && (
-                                <div className="mt-2">
-                                    <p><strong>Objects:</strong></p>
-                                    <ul className="ml-4">
-                                        {scene.getObjects().map((obj, index: number) => (
-                                            <li key={index}>
-                                                {String(obj.type)} at ({String(obj.x)}, {String(obj.y)}) - fill: {String(obj.fill)}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
                         </div>
 
                         {scene && (
                             <div className="border border-gray-300 rounded overflow-hidden">
-                                <AdvancedDesigner width={600} height={400} scene={scene} />
+                                <Viewer width={600} height={400} scene={scene} />
                             </div>
                         )}
 
@@ -188,7 +164,6 @@ export default function BasicRenderingSample() {
                         )}
                     </div>
 
-                    {/* 통계 정보 */}
                     <div className="mt-4 grid grid-cols-3 gap-4">
                         <div className="bg-blue-50 rounded p-3">
                             <div className="text-lg font-bold text-blue-600">

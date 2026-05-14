@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Stage, Layer, Rect as KonvaRect, Circle as KonvaCircle } from 'react-konva';
+import { Stage, Layer, Rect as KonvaRect, Circle as KonvaCircle, Line as KonvaLine, Text as KonvaText } from 'react-konva';
 import { Scene, CommandHistory, AddCommand } from '@canvas-kit/core';
 import type { DrawingObject, CommandHistoryEvent } from '@canvas-kit/core';
 import { KonvaDesigner } from './KonvaDesigner';
@@ -262,6 +262,26 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
         }
     }, [currentTool, addTextAtPosition]);
 
+    // 도구 전환 시 기존 씬 객체를 비상호작용 배경 레이어로 렌더링
+    const renderSceneBackground = useCallback(() => (
+        <Layer listening={false}>
+            {scene.getObjects().map(obj => {
+                switch (obj.type) {
+                    case 'rect':
+                        return <KonvaRect key={obj.id} x={obj.x} y={obj.y} width={(obj as any).width} height={(obj as any).height} fill={obj.fill} stroke={obj.stroke} strokeWidth={obj.strokeWidth} />;
+                    case 'circle':
+                        return <KonvaCircle key={obj.id} x={obj.x} y={obj.y} radius={(obj as any).radius} fill={obj.fill} stroke={obj.stroke} strokeWidth={obj.strokeWidth} />;
+                    case 'line':
+                        return <KonvaLine key={obj.id} points={(obj as any).points} stroke={obj.stroke || 'black'} strokeWidth={obj.strokeWidth || 1} />;
+                    case 'text':
+                        return <KonvaText key={obj.id} x={obj.x} y={obj.y} text={(obj as any).text} fontSize={(obj as any).fontSize || 16} fill={obj.fill || 'black'} />;
+                    default:
+                        return null;
+                }
+            })}
+        </Layer>
+    ), [scene]);
+
     const tools = [
         { id: 'select', label: '선택', icon: '↖️', shortcut: '1' },
         { id: 'draw', label: '그리기', icon: '✏️', shortcut: '2' },
@@ -395,6 +415,7 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
                         ref={stageRef}
                         onClick={handleStageClick}
                     >
+                        {renderSceneBackground()}
                         <Layer>
                             {currentTool === 'draw' && (
                                 <FreeDrawingCanvas
@@ -434,6 +455,7 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
                         onMouseMove={handleShapeMouseMove}
                         onMouseUp={handleShapeMouseUp}
                     >
+                        {renderSceneBackground()}
                         <Layer>
                             {previewShape?.type === 'rect' && (
                                 <KonvaRect

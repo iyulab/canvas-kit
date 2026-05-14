@@ -12,7 +12,6 @@ export const Viewer: React.FC<ViewerProps> = ({ width, height, scene }: ViewerPr
 
   useEffect(() => {
     if (canvasRef.current && scene) {
-      console.log('Rendering scene with objects:', scene.getObjects());
       const renderer = new CanvasKitRenderer(canvasRef.current);
       renderer.render(scene);
     }
