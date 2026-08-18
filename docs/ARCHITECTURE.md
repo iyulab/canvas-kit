@@ -2,7 +2,9 @@
 
 ## Overview
 
-Canvas-Kit은 프레임워크 중립적인 캔버스 라이브러리입니다. 3개의 npm 패키지로 구성되며, UI 종속성에 따라 명확히 분리됩니다.
+Canvas-Kit은 3개의 npm 패키지로 구성되며, UI 종속성에 따라 명확히 분리됩니다. `core`는 UI에
+독립적인 순수 TypeScript 데이터 엔진이고, `designer`/`viewer`는 그 위에 얹힌 React 컴포넌트입니다
+(아래 Tech Stack 참고).
 
 ## Tech Stack
 

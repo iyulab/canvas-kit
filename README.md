@@ -1,6 +1,8 @@
 # Canvas-Kit
 
-프레임워크 중립적인 웹 컴포넌트 기반 캔버스 라이브러리로 필수적인 편집 기능을 제공합니다.
+React 기반 캔버스 라이브러리로 필수적인 편집 기능을 제공합니다. `@canvas-kit/core`는 UI에
+독립적인 순수 TypeScript 데이터 엔진이고, `@canvas-kit/designer`·`@canvas-kit/viewer`는 그
+위에 얹힌 React 컴포넌트입니다.
 
 [![Deploy Canvas-Kit Site to Pages](https://github.com/iyulab/canvas-kit/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/iyulab/canvas-kit/actions/workflows/deploy-pages.yml)
 
@@ -15,7 +17,8 @@ Canvas-Kit의 모든 기능을 확인해보세요: **[https://iyulab.github.io/c
 - 🎯 **Multi-Selection** - Select and manipulate multiple elements
 - 🖱️ **Interactive Controls** - Drag, resize, rotate with visual handles
 - 📱 **Touch Support** - Mobile and tablet optimized
-- 🌐 **Framework Agnostic** - Works with any framework or vanilla JS
+- ⚛️ **React Components** - `designer`/`viewer` are React components; `core` has zero UI
+  dependencies and runs standalone (Node.js or any renderer you build on top of it)
 - 🔧 **TypeScript Ready** - Full type safety
 - ⚡ **High Performance** - Powered by Konva.js and HTML rendering
 
@@ -35,8 +38,10 @@ Canvas-Kit의 모든 기능을 확인해보세요: **[https://iyulab.github.io/c
 npm install @canvas-kit/designer
 ```
 
-```html
-<canvas-designer width="800" height="600"></canvas-designer>
+```tsx
+import { KonvaDesigner } from '@canvas-kit/designer';
+
+<KonvaDesigner width={800} height={600} />
 ```
 
 ### Viewer (Display Only)
@@ -45,8 +50,10 @@ npm install @canvas-kit/designer
 npm install @canvas-kit/viewer
 ```
 
-```html
-<canvas-viewer src="./design.json" width="800" height="600"></canvas-viewer>
+```tsx
+import { Viewer } from '@canvas-kit/viewer';
+
+<Viewer width={800} height={600} scene={scene} />
 ```
 
 ### Core (Data Processing)
@@ -54,6 +61,9 @@ npm install @canvas-kit/viewer
 ```bash
 npm install @canvas-kit/core
 ```
+
+`core` has no UI — it exposes the `Scene`/`CanvasKitRenderer` data model that `designer` and
+`viewer` build on. Use it directly for server-side processing or a custom renderer.
 
 ## 🎨 What You Can Build
 
@@ -72,48 +82,42 @@ npm install @canvas-kit/core
 - **Viewer** - Lightweight HTML renderer
 
 **Built on Modern Standards:**
-- Web Components for maximum compatibility
+- React components (`designer`/`viewer`) for a familiar integration surface
 - TypeScript for development safety
 - Event-driven architecture for clean communication
 
-## 🌐 Framework Integration
+## ⚛️ React Integration
 
-Works seamlessly with any framework:
+`designer` and `viewer` are React components — `react`/`react-dom` ^18 or ^19 as peer
+dependencies:
 
-```html
-<!-- Vanilla JS -->
-<canvas-designer></canvas-designer>
-
-<!-- React -->
-<canvas-designer ref={canvasRef} />
-
-<!-- Vue -->
-<canvas-designer ref="canvas" />
-
-<!-- Angular -->
-<canvas-designer #canvas></canvas-designer>
+```tsx
+import { KonvaDesigner } from '@canvas-kit/designer';
+import { Viewer } from '@canvas-kit/viewer';
 ```
+
+Non-React frameworks aren't currently supported — `core` alone (no React dependency) is the
+integration point if you need to build a custom renderer for another framework.
 
 ## 📖 Documentation
 
 - [Architecture Guide](docs/ARCHITECTURE.md) - System design and principles
-- [API Reference](docs/API.md) - Complete API documentation
-- [Examples](examples/) - Usage examples and demos
+- [Live Demo](https://iyulab.github.io/canvas-kit) - Interactive samples for every feature
 
 ## 🚀 Development
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
-# Start development
-npm run dev
+# Start development (demo site)
+pnpm dev
 
 # Run tests
-npm test
+pnpm test
 
 # Build packages
-npm run build
+pnpm build:all
 ```
 
 ## 📈 Performance
