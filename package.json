@@ -27,8 +27,7 @@
     "type-check:packages": "pnpm --filter \"@canvas-kit/*\" --parallel exec tsc --noEmit",
     "type-check:all": "pnpm type-check:packages && pnpm --filter canvas-kit-site type-check",
     "type-check:site": "pnpm --filter canvas-kit-site type-check",
-    "check": "pnpm type-check:core && pnpm test:packages && pnpm build:all",
-    "check:all": "pnpm type-check:all && pnpm test:packages && pnpm build:all",
+    "check": "pnpm type-check:all && pnpm test:packages && pnpm build:all",
     "ci": "pnpm install --frozen-lockfile && pnpm check"
   },
   "repository": {

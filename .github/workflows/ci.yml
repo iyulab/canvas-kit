@@ -1,0 +1,43 @@
+name: CI
+
+# push/PR 검증 게이트 — 이전엔 `deploy-pages.yml`/`publish-npm.yml`만 있어 머지 전 검증
+# 지점이 없었다. `pnpm check`(로컬 게이트)도 `type-check:core`만 돌아 designer/viewer/site의
+# 타입 에러를 놓쳤다(`pnpm type-check:all`을 직접 돌리면 드러남) — 이 워크플로는 그 사각지대를
+# 없애기 위해 `pnpm check`(= type-check:all + test:packages + build:all)를 그대로 돈다.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check (all packages + site)
+        run: pnpm type-check:all
+
+      - name: Build (all packages + site)
+        run: pnpm build:all
+
+      - name: Test (all packages)
+        run: pnpm test:packages

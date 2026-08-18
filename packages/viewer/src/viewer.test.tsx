@@ -2,7 +2,8 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Viewer } from './viewer';
 import { CanvasKitRenderer, Scene } from '@canvas-kit/core';
-import { vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import '@testing-library/jest-dom';
 
 // Mock the CanvasKitRenderer
 const mockRender = vi.fn();
