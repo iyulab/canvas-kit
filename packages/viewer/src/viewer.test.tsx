@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { Viewer } from './viewer';
 import { CanvasKitRenderer, Scene } from '@canvas-kit/core';
 import { vi } from 'vitest';
@@ -134,5 +134,111 @@ describe('Viewer', () => {
 
     expect(screen.getByTestId('overlay-layer').style.pointerEvents).toBe('none');
     expect(screen.getByTestId('overlay-w1').style.pointerEvents).toBe('auto');
+  });
+
+  describe('pan/zoom interaction (uncontrolled)', () => {
+    it('zooms in on wheel with a negative deltaY, anchored at the pointer', () => {
+      render(<Viewer width={200} height={200} scene={new Scene()} />);
+      const container = screen.getByTestId('viewer-container');
+
+      mockRender.mockClear();
+      fireEvent.wheel(container, { deltaY: -100, clientX: 50, clientY: 50 });
+
+      const [, transform] = mockRender.mock.calls[mockRender.mock.calls.length - 1];
+      expect(transform.scale).toBeGreaterThan(1);
+    });
+
+    it('zooms out on wheel with a positive deltaY', () => {
+      render(<Viewer width={200} height={200} scene={new Scene()} />);
+      const container = screen.getByTestId('viewer-container');
+
+      mockRender.mockClear();
+      fireEvent.wheel(container, { deltaY: 100, clientX: 50, clientY: 50 });
+
+      const [, transform] = mockRender.mock.calls[mockRender.mock.calls.length - 1];
+      expect(transform.scale).toBeLessThan(1);
+    });
+
+    it('clamps zoom to [minScale, maxScale]', () => {
+      render(<Viewer width={200} height={200} scene={new Scene()} minScale={0.5} maxScale={2} />);
+      const container = screen.getByTestId('viewer-container');
+
+      for (let i = 0; i < 50; i++) {
+        fireEvent.wheel(container, { deltaY: -1000, clientX: 50, clientY: 50 });
+      }
+      let [, transform] = mockRender.mock.calls[mockRender.mock.calls.length - 1];
+      expect(transform.scale).toBeLessThanOrEqual(2);
+
+      for (let i = 0; i < 50; i++) {
+        fireEvent.wheel(container, { deltaY: 1000, clientX: 50, clientY: 50 });
+      }
+      [, transform] = mockRender.mock.calls[mockRender.mock.calls.length - 1];
+      expect(transform.scale).toBeGreaterThanOrEqual(0.5);
+    });
+
+    it('pans by the pointer drag delta without changing scale', () => {
+      render(<Viewer width={200} height={200} scene={new Scene()} />);
+      const container = screen.getByTestId('viewer-container');
+
+      fireEvent.pointerDown(container, { clientX: 100, clientY: 100, pointerId: 1 });
+      mockRender.mockClear();
+      fireEvent.pointerMove(container, { clientX: 130, clientY: 115, pointerId: 1 });
+      fireEvent.pointerUp(container, { clientX: 130, clientY: 115, pointerId: 1 });
+
+      const [, transform] = mockRender.mock.calls[mockRender.mock.calls.length - 1];
+      expect(transform).toEqual({ x: 30, y: 15, scale: 1 });
+    });
+
+    it('does not pan while the pointer is not down', () => {
+      render(<Viewer width={200} height={200} scene={new Scene()} />);
+      const container = screen.getByTestId('viewer-container');
+
+      mockRender.mockClear();
+      fireEvent.pointerMove(container, { clientX: 130, clientY: 115, pointerId: 1 });
+
+      expect(mockRender).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('pan/zoom interaction (controlled)', () => {
+    it('reports the computed transform via onTransformChange instead of self-updating', () => {
+      const onTransformChange = vi.fn();
+      const scene = new Scene();
+      const { rerender } = render(
+        <Viewer
+          width={200}
+          height={200}
+          scene={scene}
+          transform={{ x: 0, y: 0, scale: 1 }}
+          onTransformChange={onTransformChange}
+        />
+      );
+      const container = screen.getByTestId('viewer-container');
+
+      fireEvent.wheel(container, { deltaY: -100, clientX: 50, clientY: 50 });
+
+      expect(onTransformChange).toHaveBeenCalledTimes(1);
+      const reported = onTransformChange.mock.calls[0][0];
+      expect(reported.scale).toBeGreaterThan(1);
+
+      // controlled: until the parent feeds the new value back in, the rendered transform
+      // stays exactly what was passed in as a prop.
+      const [, transformUsed] = mockRender.mock.calls[mockRender.mock.calls.length - 1];
+      expect(transformUsed).toEqual({ x: 0, y: 0, scale: 1 });
+
+      // once the parent re-renders with the reported transform, the viewer reflects it.
+      mockRender.mockClear();
+      rerender(
+        <Viewer
+          width={200}
+          height={200}
+          scene={scene}
+          transform={reported}
+          onTransformChange={onTransformChange}
+        />
+      );
+      const [, transformAfterRerender] = mockRender.mock.calls[mockRender.mock.calls.length - 1];
+      expect(transformAfterRerender).toEqual(reported);
+    });
   });
 });
