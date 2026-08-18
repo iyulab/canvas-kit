@@ -408,3 +408,6 @@ venv.bak/
 .idea/
 *.swp
 *.swo
+
+# npm/pnpm pack output (local verification artifacts, never published from a checked-in tarball)
+*.tgz

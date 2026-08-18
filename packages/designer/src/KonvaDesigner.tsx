@@ -114,11 +114,16 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
             const newY = target.y();
 
             if (originalObject.x !== newX || originalObject.y !== newY) {
-                // Create new scene with updated object
+                // Scene.copy() gives every object a new reference, so the update must be looked
+                // up and applied against the copy's own objects — updateObject matches by
+                // reference, and originalObject's reference belongs to the pre-copy scene.
                 const newScene = scene.copy();
-                const updatedObject = { ...originalObject, x: newX, y: newY };
-                newScene.updateObject(originalObject, updatedObject);
-                onSceneChange?.(newScene);
+                const objectInNewScene = newScene.getObjects().find(obj => obj.id === objectId);
+                if (objectInNewScene) {
+                    const updatedObject = { ...objectInNewScene, x: newX, y: newY };
+                    newScene.updateObject(objectInNewScene, updatedObject);
+                    onSceneChange?.(newScene);
+                }
             }
         }
     }, [scene, onSceneChange]);
