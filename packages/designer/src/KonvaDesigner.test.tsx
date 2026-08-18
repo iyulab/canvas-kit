@@ -26,6 +26,9 @@ vi.mock('react-konva', () => ({
     Text: (props: any) => (
         <div data-testid="konva-text" data-props={JSON.stringify(props)} />
     ),
+    Image: (props: any) => (
+        <div data-testid="konva-image" data-props={JSON.stringify({ ...props, image: undefined })} />
+    ),
     Transformer: (props: any) => (
         <div data-testid="konva-transformer" />
     ),
@@ -61,7 +64,7 @@ describe('KonvaDesigner', () => {
         // Add test objects to scene
         scene.add({
             id: 'rect1',
-            type: 'rectangle',
+            type: 'rect',
             x: 10,
             y: 20,
             width: 50,
@@ -90,6 +93,25 @@ describe('KonvaDesigner', () => {
         expect(screen.getByTestId('konva-rect')).toBeInTheDocument();
         expect(screen.getByTestId('konva-circle')).toBeInTheDocument();
         expect(screen.getByTestId('konva-transformer')).toBeInTheDocument();
+    });
+
+    it('renders an image object as a Konva Image, positioned like other shapes', () => {
+        scene.add({
+            id: 'img1',
+            type: 'image',
+            x: 5,
+            y: 15,
+            width: 200,
+            height: 100,
+            src: 'https://example.com/floor-plan.png',
+        });
+
+        render(<KonvaDesigner width={800} height={600} scene={scene} />);
+
+        const imageNode = screen.getByTestId('konva-image');
+        expect(imageNode).toBeInTheDocument();
+        const props = JSON.parse(imageNode.getAttribute('data-props')!);
+        expect(props).toMatchObject({ id: 'img1', x: 5, y: 15, width: 200, height: 100 });
     });
 
     it('renders with Layer and Transformer components', () => {
