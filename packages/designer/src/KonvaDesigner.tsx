@@ -128,6 +128,44 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
         }
     }, [scene, onSceneChange]);
 
+    // Object resize handler — Konva's Transformer reports a resize as a scale factor on the
+    // node (not a new width/height/radius), so it has to be baked into the object's own size
+    // fields and the node's scale reset to 1, or the next resize compounds on top of it.
+    const handleObjectTransformEnd = useCallback((e: Konva.KonvaEventObject<Event>) => {
+        const node = e.target;
+        const objectId = node.id();
+
+        const scaleX = node.scaleX();
+        const scaleY = node.scaleY();
+        node.scaleX(1);
+        node.scaleY(1);
+        const x = node.x();
+        const y = node.y();
+
+        // Same Scene.copy() reference-identity requirement as handleObjectDragEnd above — look
+        // the object up inside the copy, not the pre-copy scene.
+        const newScene = scene.copy();
+        const objectInNewScene = newScene.getObjects().find(obj => obj.id === objectId);
+        if (!objectInNewScene) return;
+
+        let updatedObject: DrawingObject;
+        if (objectInNewScene.type === 'rect' || objectInNewScene.type === 'image') {
+            updatedObject = {
+                ...objectInNewScene,
+                x, y,
+                width: Math.max(5, objectInNewScene.width * scaleX),
+                height: Math.max(5, objectInNewScene.height * scaleY),
+            };
+        } else if (objectInNewScene.type === 'circle') {
+            updatedObject = { ...objectInNewScene, x, y, radius: Math.max(5, objectInNewScene.radius * scaleX) };
+        } else {
+            return; // line/text aren't resized via width/height/radius
+        }
+
+        newScene.updateObject(objectInNewScene, updatedObject);
+        onSceneChange?.(newScene);
+    }, [scene, onSceneChange]);
+
     // Render object function
     const renderObject = useCallback((obj: DrawingObject) => {
         const isSelected = obj.id ? selectedIds.includes(obj.id) : false;
@@ -138,6 +176,7 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
             y: obj.y,
             draggable: true,
             onDragEnd: handleObjectDragEnd,
+            onTransformEnd: handleObjectTransformEnd,
         };
 
         switch (obj.type) {
@@ -199,7 +238,7 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
             default:
                 return null;
         }
-    }, [selectedIds, handleObjectDragEnd]);
+    }, [selectedIds, handleObjectDragEnd, handleObjectTransformEnd]);
 
     return (
         <div style={{ position: 'relative' }}>
