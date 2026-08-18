@@ -1,4 +1,4 @@
-import { SelectionManager } from './selection';
+import { SelectionManager, SelectionUtils } from './selection';
 import { Scene } from './scene';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
@@ -106,6 +106,12 @@ describe('SelectionManager', () => {
                 width: 50,  // 25 * 2
                 height: 50  // 25 * 2
             });
+        });
+
+        it('should calculate image bounding box the same way as rect', () => {
+            const image = { type: 'image' as const, x: 40, y: 60, width: 80, height: 45, src: 'a.png' };
+            const bounds = selectionManager.getObjectBounds(image);
+            expect(bounds).toEqual({ x: 40, y: 60, width: 80, height: 45 });
         });
 
         it('should return null for empty selection bounds', () => {
@@ -226,5 +232,26 @@ describe('SelectionManager', () => {
             selectionManager.selectSingle(rect2);
             expect(listener).not.toHaveBeenCalled();
         });
+    });
+});
+
+describe('SelectionUtils image parity with rect', () => {
+    const image = { type: 'image' as const, x: 10, y: 10, width: 50, height: 30, src: 'a.png' };
+    const marquee = { type: 'rect' as const, x: 0, y: 0, width: 100, height: 100, fill: 'transparent' };
+    const missingMarquee = { type: 'rect' as const, x: 500, y: 500, width: 10, height: 10, fill: 'transparent' };
+
+    it('isPointInObject treats an image as its rect-shaped bounds', () => {
+        expect(SelectionUtils.isPointInObject({ x: 20, y: 20 }, image)).toBe(true);
+        expect(SelectionUtils.isPointInObject({ x: 5, y: 20 }, image)).toBe(false);
+    });
+
+    it('isObjectCompletelyInRect treats an image as its rect-shaped bounds', () => {
+        expect(SelectionUtils.isObjectCompletelyInRect(image, marquee)).toBe(true);
+        expect(SelectionUtils.isObjectCompletelyInRect(image, missingMarquee)).toBe(false);
+    });
+
+    it('isObjectIntersectingRect treats an image as its rect-shaped bounds', () => {
+        expect(SelectionUtils.isObjectIntersectingRect(image, marquee)).toBe(true);
+        expect(SelectionUtils.isObjectIntersectingRect(image, missingMarquee)).toBe(false);
     });
 });

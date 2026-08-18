@@ -64,7 +64,11 @@ export const Viewer: React.FC<ViewerProps> = ({
 
   useEffect(() => {
     if (canvasRef.current && scene) {
-      const renderer = new CanvasKitRenderer(canvasRef.current);
+      // 이미지가 아직 로딩 중이면 이번 프레임엔 그려지지 않는다 — 로딩이 끝나면 같은 renderer
+      // 인스턴스로 다시 한번 그려서 반영한다(별도 React 상태 없이, canvas만 갱신).
+      const renderer: CanvasKitRenderer = new CanvasKitRenderer(canvasRef.current, {
+        onImageLoad: () => renderer.render(scene, transform),
+      });
       renderer.render(scene, transform);
     }
   }, [scene, width, height, transform]);

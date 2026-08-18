@@ -39,6 +39,13 @@ export interface Line extends Shape {
   type: 'line';
 }
 
+export interface Image extends Shape {
+  src: string;
+  width: number;
+  height: number;
+  type: 'image';
+}
+
 // 뷰의 pan/zoom 상태 — 캔버스 렌더링과 DOM 오버레이가 동일한 값을 공유해 좌표계를 동기화한다
 export interface Transform {
   x: number;
@@ -73,7 +80,7 @@ export type DrawingObject =
   | Text
   | Path
   | Line
-  // | Image
+  | Image
   ;
 
 // 선택 가능한 모든 요소 타입 (DrawingObject + Canvas)

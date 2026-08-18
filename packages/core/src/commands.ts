@@ -69,7 +69,7 @@ export class ResizeCommand implements ICommand {
         const obj = this.scene.getObjects().find(o => o.id === this.objectId);
         if (!obj) return;
 
-        if (obj.type === 'rect') {
+        if (obj.type === 'rect' || obj.type === 'image') {
             (obj as any).width = this.newSize.width;
             (obj as any).height = this.newSize.height;
         } else if (obj.type === 'circle') {
@@ -83,7 +83,7 @@ export class ResizeCommand implements ICommand {
         const obj = this.scene.getObjects().find(o => o.id === this.objectId);
         if (!obj) return;
 
-        if (obj.type === 'rect') {
+        if (obj.type === 'rect' || obj.type === 'image') {
             (obj as any).width = this.oldSize.width;
             (obj as any).height = this.oldSize.height;
         } else if (obj.type === 'circle') {

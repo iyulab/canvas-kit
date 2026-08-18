@@ -1,7 +1,9 @@
 import { CanvasKitRenderer } from './renderer';
 import { Scene } from './scene';
 import { IDENTITY_TRANSFORM } from './types';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { createImageLoader } from './image-loader';
+import type { ImageLoader } from './image-loader';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 describe('CanvasKitRenderer transform', () => {
   let renderer: CanvasKitRenderer;
@@ -64,5 +66,68 @@ describe('CanvasKitRenderer transform', () => {
 
   it('exports IDENTITY_TRANSFORM as {x:0, y:0, scale:1}', () => {
     expect(IDENTITY_TRANSFORM).toEqual({ x: 0, y: 0, scale: 1 });
+  });
+});
+
+describe('CanvasKitRenderer image objects', () => {
+  let canvas: HTMLCanvasElement;
+  let scene: Scene;
+
+  beforeEach(() => {
+    canvas = document.createElement('canvas');
+    scene = new Scene();
+    scene.add({ type: 'image', x: 5, y: 6, width: 40, height: 30, src: 'a.png' });
+  });
+
+  it('draws nothing for an image that has not finished loading yet', () => {
+    const loader: ImageLoader = { getOrLoadImage: () => null };
+    const renderer = new CanvasKitRenderer(canvas, { imageLoader: loader });
+
+    renderer.render(scene);
+
+    const ctx = canvas.getContext('2d');
+    // @ts-ignore
+    const drawCalls = ctx.__getDrawCalls();
+    expect(drawCalls.some((c: { type: string }) => c.type === 'drawImage')).toBe(false);
+  });
+
+  it('draws the image once it has loaded', () => {
+    const htmlImage = document.createElement('img');
+    const loader: ImageLoader = { getOrLoadImage: () => htmlImage };
+    const renderer = new CanvasKitRenderer(canvas, { imageLoader: loader });
+
+    renderer.render(scene);
+
+    const ctx = canvas.getContext('2d');
+    // @ts-ignore
+    const drawCalls = ctx.__getDrawCalls();
+    const drawImageCall = drawCalls.find((c: { type: string }) => c.type === 'drawImage');
+    expect(drawImageCall).toBeDefined();
+  });
+
+  it('calls onImageLoad once a not-yet-loaded image finishes loading', () => {
+    let capturedImage: HTMLImageElement;
+    const loader = createImageLoader(() => {
+      capturedImage = document.createElement('img');
+      return capturedImage;
+    });
+    const onImageLoad = vi.fn();
+    const renderer = new CanvasKitRenderer(canvas, { imageLoader: loader, onImageLoad });
+
+    renderer.render(scene); // triggers the load, image not ready yet
+    expect(onImageLoad).not.toHaveBeenCalled();
+
+    // simulate the browser firing the image's load event
+    (capturedImage! as any).onload?.();
+
+    expect(onImageLoad).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not throw when an object has an unrecognized type', () => {
+    const renderer = new CanvasKitRenderer(canvas);
+    const badScene = new Scene();
+    badScene.add({ type: 'unknown-shape' } as any);
+
+    expect(() => renderer.render(badScene)).not.toThrow();
   });
 });

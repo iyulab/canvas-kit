@@ -1,7 +1,7 @@
-import type { DrawingObject, Rect, Circle, Text, Path, Line } from './types';
+import type { DrawingObject, Rect, Circle, Text, Path, Line, Image as ImageShape } from './types';
 
 export class HitTest {
-    static isPointInRect(x: number, y: number, rect: Rect): boolean {
+    static isPointInRect(x: number, y: number, rect: Rect | ImageShape): boolean {
         return (
             x >= rect.x &&
             x <= rect.x + rect.width &&
@@ -54,6 +54,8 @@ export class HitTest {
                 return this.isPointInPolyline(x, y, (obj as Path).points);
             case 'line':
                 return this.isPointInPolyline(x, y, (obj as Line).points);
+            case 'image':
+                return this.isPointInRect(x, y, obj as ImageShape);
             default:
                 return false;
         }

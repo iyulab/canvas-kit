@@ -69,4 +69,22 @@ describe('HitTest', () => {
             expect(obj?.fill).toBe('blue');
         });
     });
+
+    describe('image hit testing', () => {
+        it('treats an image as a rect-shaped bounding box', () => {
+            const image = { type: 'image' as const, x: 200, y: 200, width: 40, height: 20, src: 'a.png' };
+            expect(HitTest.isPointInObject(210, 210, image)).toBe(true); // inside
+            expect(HitTest.isPointInObject(200, 200, image)).toBe(true); // corner
+            expect(HitTest.isPointInObject(195, 210, image)).toBe(false); // left of it
+            expect(HitTest.isPointInObject(210, 225, image)).toBe(false); // below it
+        });
+
+        it('finds an image object in a scene', () => {
+            const scene = new Scene();
+            scene.add({ type: 'image', x: 200, y: 200, width: 40, height: 20, src: 'a.png' });
+
+            const obj = scene.getObjectAtPoint(210, 210);
+            expect(obj?.type).toBe('image');
+        });
+    });
 });

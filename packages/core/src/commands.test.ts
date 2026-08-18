@@ -100,6 +100,22 @@ describe('ResizeCommand', () => {
         cmd.execute();
         expect(obj.radius).toBe(50);
     });
+
+    it('execute: resizes image to new dimensions, same as rect', () => {
+        const obj = { id: 'i1', type: 'image' as const, x: 0, y: 0, width: 50, height: 50, src: 'a.png' };
+        scene.add(obj);
+        const cmd = new ResizeCommand(
+            obj,
+            { x: 0, y: 0, width: 50, height: 50 },
+            { x: 10, y: 10, width: 100, height: 200 },
+            scene
+        );
+        cmd.execute();
+        expect(obj.width).toBe(100);
+        expect(obj.height).toBe(200);
+        expect(obj.x).toBe(10);
+        expect(obj.y).toBe(10);
+    });
 });
 
 describe('AddCommand', () => {

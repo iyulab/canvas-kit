@@ -176,6 +176,7 @@ export class SelectionManager {
     getObjectBounds(obj: DrawingObject): BoundingBox {
         switch (obj.type) {
             case 'rect':
+            case 'image':
                 return {
                     x: obj.x,
                     y: obj.y,
@@ -260,6 +261,7 @@ export class SelectionUtils {
     static isPointInObject(point: Point, obj: DrawingObject): boolean {
         switch (obj.type) {
             case 'rect':
+            case 'image':
                 return point.x >= obj.x &&
                     point.x <= obj.x + obj.width &&
                     point.y >= obj.y &&
@@ -332,6 +334,7 @@ export class SelectionUtils {
     static isObjectCompletelyInRect(obj: DrawingObject, rect: Rect): boolean {
         switch (obj.type) {
             case 'rect':
+            case 'image':
                 return obj.x >= rect.x &&
                     obj.y >= rect.y &&
                     obj.x + obj.width <= rect.x + rect.width &&
@@ -382,6 +385,7 @@ export class SelectionUtils {
     static isObjectIntersectingRect(obj: DrawingObject, rect: Rect): boolean {
         switch (obj.type) {
             case 'rect':
+            case 'image':
                 return !(obj.x > rect.x + rect.width ||
                     obj.x + obj.width < rect.x ||
                     obj.y > rect.y + rect.height ||

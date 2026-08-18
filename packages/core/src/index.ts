@@ -1,6 +1,9 @@
 export { Scene } from './scene';
 export { CanvasKitRenderer } from './renderer';
+export type { CanvasKitRendererOptions } from './renderer';
 export { HitTest } from './hit-test';
+export { createImageLoader, defaultImageLoader } from './image-loader';
+export type { ImageLoader } from './image-loader';
 export { SelectionManager, SelectionUtils } from './selection';
 export * from './commands';
 export * from './clipboard';

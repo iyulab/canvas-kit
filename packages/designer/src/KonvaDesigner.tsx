@@ -1,7 +1,30 @@
-import React, { useRef, useEffect, useState, useCallback, useLayoutEffect } from 'react';
-import { Stage, Layer, Rect, Circle, Line, Text, Transformer } from 'react-konva';
-import { DrawingObject, Scene } from '@canvas-kit/core';
+import React, { useRef, useEffect, useState, useCallback, useLayoutEffect, useReducer } from 'react';
+import { Stage, Layer, Rect, Circle, Line, Text, Image as KonvaImage, Transformer } from 'react-konva';
+import { DrawingObject, Scene, defaultImageLoader } from '@canvas-kit/core';
+import type { Image as ImageShape } from '@canvas-kit/core';
 import type Konva from 'konva';
+
+// Image src loading is async, unlike every other Shape — a small subcomponent so the load-state
+// hook lives at its own top level (Rules of Hooks) instead of inside the renderObject callback.
+const KonvaImageNode: React.FC<{
+    obj: ImageShape;
+    commonProps: Record<string, unknown>;
+    isSelected: boolean;
+}> = ({ obj, commonProps, isSelected }) => {
+    const [, rerenderOnLoad] = useReducer((n: number) => n + 1, 0);
+    const htmlImage = defaultImageLoader.getOrLoadImage(obj.src, rerenderOnLoad) ?? undefined;
+
+    return (
+        <KonvaImage
+            {...commonProps}
+            image={htmlImage}
+            width={obj.width}
+            height={obj.height}
+            stroke={isSelected ? '#0080ff' : obj.stroke}
+            strokeWidth={isSelected ? 2 : obj.strokeWidth || 0}
+        />
+    );
+};
 
 export interface KonvaDesignerProps {
     width: number;
@@ -157,6 +180,15 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
                         fontFamily={obj.fontFamily || 'Arial'}
                         stroke={isSelected ? '#0080ff' : obj.stroke}
                         strokeWidth={isSelected ? 1 : obj.strokeWidth || 0}
+                    />
+                );
+            case 'image':
+                return (
+                    <KonvaImageNode
+                        key={obj.id}
+                        obj={obj}
+                        commonProps={commonProps}
+                        isSelected={isSelected}
                     />
                 );
             default:

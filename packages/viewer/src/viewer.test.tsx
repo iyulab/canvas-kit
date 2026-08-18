@@ -57,6 +57,19 @@ describe('Viewer', () => {
     expect(mockRender).not.toHaveBeenCalled();
   });
 
+  it('passes an onImageLoad callback that re-renders the scene when invoked', () => {
+    const scene = new Scene();
+    render(<Viewer width={100} height={100} scene={scene} />);
+
+    const options = (CanvasKitRenderer as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    expect(typeof options.onImageLoad).toBe('function');
+
+    mockRender.mockClear();
+    options.onImageLoad();
+
+    expect(mockRender).toHaveBeenCalledWith(scene, { x: 0, y: 0, scale: 1 });
+  });
+
   it('renders scene with the identity transform by default', () => {
     const scene = new Scene();
     render(<Viewer width={100} height={100} scene={scene} />);

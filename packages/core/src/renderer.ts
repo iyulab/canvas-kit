@@ -1,12 +1,26 @@
 import type { Scene } from './scene';
-import type { Rect, Circle, Text, Path, Line, DrawingObject, Transform } from './types';
+import type { Rect, Circle, Text, Path, Line, Image as ImageShape, DrawingObject, Transform } from './types';
 import { IDENTITY_TRANSFORM } from './types';
+import type { ImageLoader } from './image-loader';
+import { defaultImageLoader } from './image-loader';
+
+export interface CanvasKitRendererOptions {
+    /** Image loads are async; called once an image referenced by a rendered scene finishes
+     * loading, so the consumer knows to re-render (the frame that requested it may have skipped
+     * drawing it). */
+    onImageLoad?: () => void;
+    /** Defaults to a shared module-level cache so repeated renders (and multiple renderers)
+     * don't re-fetch the same image. Override mainly for testing. */
+    imageLoader?: ImageLoader;
+}
 
 export class CanvasKitRenderer {
     private canvas: HTMLCanvasElement;
     private ctx: CanvasRenderingContext2D;
+    private onImageLoad?: () => void;
+    private imageLoader: ImageLoader;
 
-    constructor(canvas: HTMLCanvasElement) {
+    constructor(canvas: HTMLCanvasElement, options: CanvasKitRendererOptions = {}) {
         if (!canvas) {
             throw new Error('Canvas element is required');
         }
@@ -17,6 +31,8 @@ export class CanvasKitRenderer {
             throw new Error('Failed to get 2D rendering context. Canvas 2D is not supported.');
         }
         this.ctx = ctx;
+        this.onImageLoad = options.onImageLoad;
+        this.imageLoader = options.imageLoader ?? defaultImageLoader;
     }
 
     public clear() {
@@ -65,6 +81,9 @@ export class CanvasKitRenderer {
                 break;
             case 'line':
                 this.drawLine(obj as Line);
+                break;
+            case 'image':
+                this.drawImage(obj as ImageShape);
                 break;
             default:
                 break;
@@ -180,5 +199,15 @@ export class CanvasKitRenderer {
             this.ctx.lineWidth = line.strokeWidth;
             this.ctx.stroke();
         }
+    }
+
+    private drawImage(image: ImageShape) {
+        const htmlImage = this.imageLoader.getOrLoadImage(image.src, () => this.onImageLoad?.());
+        if (!htmlImage) {
+            // Not loaded yet (or failed) — nothing to draw this frame. onImageLoad (if given)
+            // will fire once it resolves so the consumer can trigger another render.
+            return;
+        }
+        this.ctx.drawImage(htmlImage, image.x, image.y, image.width, image.height);
     }
 }
