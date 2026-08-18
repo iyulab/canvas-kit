@@ -32,10 +32,7 @@ export interface KonvaDesignerProps {
     scene: Scene;
     onSceneChange?: (scene: Scene) => void;
     onSelectionChange?: (selection: DrawingObject[]) => void;
-    enableKeyboardShortcuts?: boolean;
-    enableTextEditing?: boolean;
     enableMultiSelect?: boolean;
-    enableRectangleSelection?: boolean;
 }
 
 export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
@@ -44,10 +41,7 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
     scene,
     onSceneChange,
     onSelectionChange,
-    enableKeyboardShortcuts = false,
-    enableTextEditing = false,
     enableMultiSelect = false,
-    enableRectangleSelection = false,
 }) => {
     const stageRef = useRef<Konva.Stage>(null);
     const transformerRef = useRef<Konva.Transformer>(null);

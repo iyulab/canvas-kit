@@ -401,10 +401,7 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
                         scene={scene}
                         onSceneChange={onSceneChange}
                         onSelectionChange={onSelectionChange}
-                        enableKeyboardShortcuts={enableKeyboardShortcuts}
-                        enableTextEditing={true}
                         enableMultiSelect={true}
-                        enableRectangleSelection={true}
                     />
                 )}
 

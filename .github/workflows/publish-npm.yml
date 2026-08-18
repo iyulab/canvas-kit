@@ -46,6 +46,7 @@ jobs:
         run: |
           pnpm --filter @canvas-kit/core test
           pnpm --filter @canvas-kit/viewer test
+          pnpm --filter @canvas-kit/designer test
 
       - name: Publish core
         if: ${{ inputs.package == 'core' || inputs.package == 'all' }}

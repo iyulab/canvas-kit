@@ -157,7 +157,6 @@ export default function SelectionPage() {
                             width={500}
                             height={350}
                             enableMultiSelect={true}
-                            enableRectangleSelection={true}
                         />
                     </div>
 

@@ -81,7 +81,6 @@ export default function DesignerSample() {
             width={800}
             height={600}
             enableMultiSelect={true}
-            enableRectangleSelection={true}
           />
         ) : (
           <div className="p-8 text-center text-gray-500">

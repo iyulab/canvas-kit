@@ -281,7 +281,6 @@ export default function CopyPasteSample() {
                     onSceneChange={handleSceneChange}
                     onSelectionChange={handleSelectionChange}
                     enableMultiSelect={true}
-                    enableRectangleSelection={true}
                 />
             </div>
 
