@@ -5,4 +5,5 @@ export { SelectionManager, SelectionUtils } from './selection';
 export * from './commands';
 export * from './clipboard';
 export type * from './types';
+export { IDENTITY_TRANSFORM } from './types';
 export type { Point, Rect, SelectionMode } from './selection';

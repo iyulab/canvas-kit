@@ -1,5 +1,6 @@
 import type { Scene } from './scene';
-import type { Rect, Circle, Text, Path, Line, DrawingObject } from './types';
+import type { Rect, Circle, Text, Path, Line, DrawingObject, Transform } from './types';
+import { IDENTITY_TRANSFORM } from './types';
 
 export class CanvasKitRenderer {
     private canvas: HTMLCanvasElement;
@@ -22,14 +23,20 @@ export class CanvasKitRenderer {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
-    public render(scene: Scene) {
+    public render(scene: Scene, transform: Transform = IDENTITY_TRANSFORM) {
         if (!scene) {
             console.warn('Scene is required for rendering');
             return;
         }
 
+        // clear는 뷰 transform과 무관하게 캔버스 전체(raw pixel 영역)를 대상으로 해야 하므로
+        // transform을 적용하기 전에 실행한다.
         this.clear();
         const objects = scene.getObjects();
+
+        this.ctx.save();
+        this.ctx.translate(transform.x, transform.y);
+        this.ctx.scale(transform.scale, transform.scale);
 
         for (const obj of objects) {
             try {
@@ -38,6 +45,8 @@ export class CanvasKitRenderer {
                 console.warn(`Failed to render object of type "${obj.type}":`, error);
             }
         }
+
+        this.ctx.restore();
     }
 
     private renderObject(obj: DrawingObject) {

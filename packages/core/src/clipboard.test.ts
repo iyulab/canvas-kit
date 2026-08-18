@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Clipboard, CopyCommand, CutCommand, PasteCommand, DuplicateCommand } from './clipboard';
 import { Scene } from './scene';
+import type { Path } from './types';
 
 beforeEach(() => {
     Clipboard.getInstance().clear();
@@ -13,7 +14,7 @@ describe('Clipboard', () => {
         clipboard.copy([obj]);
         obj.points[0] = 999;
         const data = clipboard.getClipboardData();
-        expect(data[0].points[0]).toBe(0);
+        expect((data[0] as Path).points[0]).toBe(0);
     });
 
     it('paste: returns new objects with offset position and new id', () => {
@@ -65,9 +66,9 @@ describe('Clipboard', () => {
         const obj = { id: 'p1', type: 'path' as const, x: 0, y: 0, points: [1, 2, 3, 4] };
         Clipboard.getInstance().copy([obj]);
         const data = Clipboard.getInstance().getClipboardData();
-        data[0].points[0] = 999;
+        (data[0] as Path).points[0] = 999;
         const data2 = Clipboard.getInstance().getClipboardData();
-        expect(data2[0].points[0]).toBe(1);
+        expect((data2[0] as Path).points[0]).toBe(1);
     });
 });
 
