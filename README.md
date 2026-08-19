@@ -39,9 +39,14 @@ npm install @canvas-kit/designer
 ```
 
 ```tsx
+import { useState } from 'react';
 import { KonvaDesigner } from '@canvas-kit/designer';
+import { Scene } from '@canvas-kit/core';
 
-<KonvaDesigner width={800} height={600} />
+function App() {
+  const [scene, setScene] = useState(new Scene());
+  return <KonvaDesigner width={800} height={600} scene={scene} onSceneChange={setScene} />;
+}
 ```
 
 ### Viewer (Display Only)
@@ -53,6 +58,7 @@ npm install @canvas-kit/viewer
 ```tsx
 import { Viewer } from '@canvas-kit/viewer';
 
+// `scene` is a `Scene` instance (see Core below), not a plain array of objects
 <Viewer width={800} height={600} scene={scene} />
 ```
 
