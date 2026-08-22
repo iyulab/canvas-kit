@@ -1,6 +1,6 @@
 import { HitTest } from './hit-test';
 import { Scene } from './scene';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
 
 describe('HitTest', () => {
     describe('isPointInRect', () => {
@@ -67,6 +67,62 @@ describe('HitTest', () => {
             const obj = scene.getObjectAtPoint(100, 50);
             expect(obj?.type).toBe('circle');
             expect(obj?.fill).toBe('blue');
+        });
+    });
+
+    describe('isPointInPolyline', () => {
+        it('rejects a point inside the bounding box but far from a diagonal two-point line', () => {
+            // (0,0) -> (100,100): bounding box is the full 100x100 square, but (90, 10) is far
+            // from the actual diagonal — a bbox-only check would wrongly report a hit here.
+            expect(HitTest.isPointInPolyline(90, 10, [0, 0, 100, 100])).toBe(false);
+        });
+
+        it('accepts a point close to the diagonal line itself', () => {
+            expect(HitTest.isPointInPolyline(50, 51, [0, 0, 100, 100])).toBe(true);
+        });
+
+        it('rejects a point in the empty corner of an L-shaped path', () => {
+            // (0,0) -> (100,0) -> (100,100): an L shape. (10, 90) sits in the bbox's empty
+            // corner, nowhere near either segment.
+            expect(HitTest.isPointInPolyline(10, 90, [0, 0, 100, 0, 100, 100])).toBe(false);
+        });
+
+        it('accepts a point near either segment of an L-shaped path', () => {
+            expect(HitTest.isPointInPolyline(50, 1, [0, 0, 100, 0, 100, 100])).toBe(true); // near first segment
+            expect(HitTest.isPointInPolyline(99, 50, [0, 0, 100, 0, 100, 100])).toBe(true); // near second segment
+        });
+
+        it('widens the hit threshold with a thicker strokeWidth', () => {
+            expect(HitTest.isPointInPolyline(50, 10, [0, 0, 100, 0], 1)).toBe(false);
+            expect(HitTest.isPointInPolyline(50, 10, [0, 0, 100, 0], 20)).toBe(true);
+        });
+    });
+
+    describe('isPointInText', () => {
+        let measureText: ReturnType<typeof vi.fn>;
+
+        beforeAll(() => {
+            // A stub width function deliberately different from the old length*fontSize*0.6
+            // heuristic, so a test passing would prove isPointInText actually uses the context's
+            // measureText() return value rather than still computing its own estimate.
+            measureText = vi.fn((text: string) => ({ width: text.length * 3 }));
+            vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+                measureText,
+                set font(_value: string) {},
+            } as unknown as CanvasRenderingContext2D);
+        });
+
+        it('uses the canvas context measureText width, not the old length*fontSize*0.6 estimate', () => {
+            const text = { type: 'text' as const, x: 0, y: 20, text: 'Hello', fontSize: 16 };
+            // Stub width: 5 chars * 3 = 15. Old heuristic would have been 5*16*0.6 = 48.
+            expect(HitTest.isPointInText(14, 10, text)).toBe(true);
+            expect(HitTest.isPointInText(16, 10, text)).toBe(false);
+        });
+
+        it('passes the text content to measureText', () => {
+            const text = { type: 'text' as const, x: 0, y: 20, text: 'Hello', fontSize: 16 };
+            HitTest.isPointInText(0, 10, text);
+            expect(measureText).toHaveBeenCalledWith('Hello');
         });
     });
 
