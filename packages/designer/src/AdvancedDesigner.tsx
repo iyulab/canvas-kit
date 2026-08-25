@@ -87,6 +87,20 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
         return () => commandHistory.removeEventListener(handleHistoryChange);
     }, [commandHistory, enableUndoRedo]);
 
+    // Undo/redo can be triggered while `KonvaDesigner` isn't mounted (any tool other than
+    // 'select') — its own history listener (`KonvaDesigner.tsx`) only runs while it's on screen,
+    // so this component must notify `onSceneChange` itself rather than relying on that. Passes
+    // `scene` itself, not a copy — see `KonvaDesigner.tsx`'s matching comment: a command captures
+    // and mutates this exact reference for as long as it lives in the undo/redo stack, so handing
+    // out a copy anywhere along the way orphans every command still pointing at the original.
+    const handleUndo = useCallback(() => {
+        if (commandHistory.undo()) onSceneChange?.(scene);
+    }, [commandHistory, scene, onSceneChange]);
+
+    const handleRedo = useCallback(() => {
+        if (commandHistory.redo()) onSceneChange?.(scene);
+    }, [commandHistory, scene, onSceneChange]);
+
     // 키보드 단축키 처리
     useEffect(() => {
         if (!enableKeyboardShortcuts) return;
@@ -102,10 +116,10 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
             if (enableUndoRedo && isCtrl) {
                 if (e.key === 'z' && !isShift) {
                     e.preventDefault();
-                    commandHistory.undo();
+                    handleUndo();
                 } else if (e.key === 'y' || (e.key === 'z' && isShift)) {
                     e.preventDefault();
-                    commandHistory.redo();
+                    handleRedo();
                 }
             }
 
@@ -123,7 +137,7 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [enableKeyboardShortcuts, enableUndoRedo, commandHistory]);
+    }, [enableKeyboardShortcuts, enableUndoRedo, handleUndo, handleRedo]);
 
     const handleToolChange = useCallback((tool: DesignerTool) => {
         setCurrentTool(tool);
@@ -371,7 +385,7 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
                                 <div className="h-6 w-px bg-gray-300" />
                                 <div className="flex gap-1">
                                     <button
-                                        onClick={() => commandHistory.undo()}
+                                        onClick={handleUndo}
                                         disabled={!historyState.canUndo}
                                         className="px-3 py-1 rounded text-sm bg-white border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
                                         title={`실행 취소 ${enableKeyboardShortcuts ? '(Ctrl+Z)' : ''}`}
@@ -379,7 +393,7 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
                                         ↶ 실행 취소
                                     </button>
                                     <button
-                                        onClick={() => commandHistory.redo()}
+                                        onClick={handleRedo}
                                         disabled={!historyState.canRedo}
                                         className="px-3 py-1 rounded text-sm bg-white border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
                                         title={`다시 실행 ${enableKeyboardShortcuts ? '(Ctrl+Y)' : ''}`}
@@ -402,6 +416,7 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
                         onSceneChange={onSceneChange}
                         onSelectionChange={onSelectionChange}
                         enableMultiSelect={true}
+                        commandHistory={commandHistory}
                     />
                 )}
 

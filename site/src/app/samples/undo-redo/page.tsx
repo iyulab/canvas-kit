@@ -227,6 +227,7 @@ export default function UndoRedoSample() {
                     onSceneChange={handleSceneChange}
                     onSelectionChange={handleSelectionChange}
                     enableMultiSelect={true}
+                    commandHistory={commandHistory}
                 />
             </div>
 

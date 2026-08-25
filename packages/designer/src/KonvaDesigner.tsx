@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback, useLayoutEffect, useReducer } from 'react';
 import { Stage, Layer, Rect, Circle, Line, Text, Image as KonvaImage, Transformer } from 'react-konva';
-import { DrawingObject, Scene, defaultImageLoader } from '@canvas-kit/core';
+import { DrawingObject, Scene, defaultImageLoader, CommandHistory, MoveCommand, ResizeCommand } from '@canvas-kit/core';
 import type { Image as ImageShape } from '@canvas-kit/core';
 import type Konva from 'konva';
 
@@ -33,6 +33,10 @@ export interface KonvaDesignerProps {
     onSceneChange?: (scene: Scene) => void;
     onSelectionChange?: (selection: DrawingObject[]) => void;
     enableMultiSelect?: boolean;
+    /** Shares an undo/redo stack with a caller that already owns one (e.g. `AdvancedDesigner`,
+     * whose toolbar-driven adds should undo/redo together with drags/resizes done here). Standalone
+     * usage gets its own stack for free when omitted. */
+    commandHistory?: CommandHistory;
 }
 
 export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
@@ -42,9 +46,33 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
     onSceneChange,
     onSelectionChange,
     enableMultiSelect = false,
+    commandHistory,
 }) => {
     const stageRef = useRef<Konva.Stage>(null);
     const transformerRef = useRef<Konva.Transformer>(null);
+    // Lazy-initialized so an omitted `commandHistory` allocates exactly one default instance,
+    // not one per render (a plain default-parameter value would re-run every render).
+    const [history] = useState(() => commandHistory ?? new CommandHistory());
+
+    // A command captures `scene` at construction time and mutates it in place for the lifetime
+    // of the undo/redo stack (MoveCommand/ResizeCommand, `@canvas-kit/core` commands.ts) — so the
+    // *same* `scene` reference must stay canonical for as long as any command referencing it can
+    // still be undone/redone. Handing a caller a copy instead (a fresh reference per change, so a
+    // naive `setScene(newScene)` always re-renders) breaks this the moment a command from *before*
+    // the copy is undone: it mutates the orphaned pre-copy object, not the one actually on screen,
+    // so the undo silently does nothing visible — and a second undo/redo after any such swap
+    // no-ops the same way. Rerendering `KonvaDesigner` itself is instead driven by its own tick,
+    // immediately below, so correctness here doesn't depend on the caller reacting to
+    // `onSceneChange` at all.
+    const [, forceRerender] = useReducer((n: number) => n + 1, 0);
+    useEffect(() => {
+        const handleHistoryChange = () => {
+            forceRerender();
+            onSceneChange?.(scene);
+        };
+        history.addEventListener(handleHistoryChange);
+        return () => history.removeEventListener(handleHistoryChange);
+    }, [history, scene, onSceneChange]);
 
     // State management
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -96,31 +124,28 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
         }
     }, [enableMultiSelect]);
 
-    // Object drag handlers
+    // Object drag handlers — routed through a Command (undo/redo, `@canvas-kit/core` commands.ts)
+    // instead of mutating the scene directly, so a drag can be undone like an add/delete can.
+    // The command mutates `scene`'s object in place; the `useEffect` above is what turns that
+    // into a fresh `Scene` reference for `onSceneChange`.
     const handleObjectDragEnd = useCallback((e: Konva.KonvaEventObject<DragEvent>) => {
         const target = e.target;
         const objectId = target.id();
-        const objects = scene.getObjects();
-        const originalObject = objects.find(obj => obj.id === objectId);
+        const originalObject = scene.getObjects().find(obj => obj.id === objectId);
+        if (!originalObject) return;
 
-        if (originalObject) {
-            const newX = target.x();
-            const newY = target.y();
+        const newX = target.x();
+        const newY = target.y();
+        if (originalObject.x === newX && originalObject.y === newY) return; // no-op drag
 
-            if (originalObject.x !== newX || originalObject.y !== newY) {
-                // Scene.copy() gives every object a new reference, so the update must be looked
-                // up and applied against the copy's own objects — updateObject matches by
-                // reference, and originalObject's reference belongs to the pre-copy scene.
-                const newScene = scene.copy();
-                const objectInNewScene = newScene.getObjects().find(obj => obj.id === objectId);
-                if (objectInNewScene) {
-                    const updatedObject = { ...objectInNewScene, x: newX, y: newY };
-                    newScene.updateObject(objectInNewScene, updatedObject);
-                    onSceneChange?.(newScene);
-                }
-            }
-        }
-    }, [scene, onSceneChange]);
+        const cmd = new MoveCommand(
+            originalObject,
+            { x: originalObject.x, y: originalObject.y },
+            { x: newX, y: newY },
+            scene
+        );
+        history.execute(cmd);
+    }, [scene, history]);
 
     // Object resize handler — Konva's Transformer reports a resize as a scale factor on the
     // node (not a new width/height/radius), so it has to be baked into the object's own size
@@ -136,29 +161,24 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
         const x = node.x();
         const y = node.y();
 
-        // Same Scene.copy() reference-identity requirement as handleObjectDragEnd above — look
-        // the object up inside the copy, not the pre-copy scene.
-        const newScene = scene.copy();
-        const objectInNewScene = newScene.getObjects().find(obj => obj.id === objectId);
-        if (!objectInNewScene) return;
+        const obj = scene.getObjects().find(o => o.id === objectId);
+        if (!obj) return;
 
-        let updatedObject: DrawingObject;
-        if (objectInNewScene.type === 'rect' || objectInNewScene.type === 'image') {
-            updatedObject = {
-                ...objectInNewScene,
-                x, y,
-                width: Math.max(5, objectInNewScene.width * scaleX),
-                height: Math.max(5, objectInNewScene.height * scaleY),
-            };
-        } else if (objectInNewScene.type === 'circle') {
-            updatedObject = { ...objectInNewScene, x, y, radius: Math.max(5, objectInNewScene.radius * scaleX) };
+        let oldSize: { x: number; y: number; width?: number; height?: number; radius?: number };
+        let newSize: typeof oldSize;
+        if (obj.type === 'rect' || obj.type === 'image') {
+            oldSize = { x: obj.x, y: obj.y, width: obj.width, height: obj.height };
+            newSize = { x, y, width: Math.max(5, obj.width * scaleX), height: Math.max(5, obj.height * scaleY) };
+        } else if (obj.type === 'circle') {
+            oldSize = { x: obj.x, y: obj.y, radius: obj.radius };
+            newSize = { x, y, radius: Math.max(5, obj.radius * scaleX) };
         } else {
             return; // line/text aren't resized via width/height/radius
         }
 
-        newScene.updateObject(objectInNewScene, updatedObject);
-        onSceneChange?.(newScene);
-    }, [scene, onSceneChange]);
+        const cmd = new ResizeCommand(obj, oldSize, newSize, scene);
+        history.execute(cmd);
+    }, [scene, history]);
 
     // Render object function
     const renderObject = useCallback((obj: DrawingObject) => {

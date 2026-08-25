@@ -1,6 +1,14 @@
 import type { DrawingObject } from './types';
 import { Scene } from './scene';
 
+// Every command below captures the `Scene` passed to its constructor and mutates that exact
+// instance in place, on both `execute()` and `undo()` — for as long as the command can still be
+// undone/redone from a `CommandHistory`, that `Scene` must stay the canonical one a consumer is
+// rendering. Swapping in a copy (e.g. to hand a UI framework a "fresh" reference so a state
+// update is never skipped as a no-op) orphans every command still holding the pre-copy instance:
+// its next undo/redo silently mutates the orphan instead of what's on screen, so a second
+// undo/redo after any such swap appears to do nothing. Force a re-render some other way instead
+// (a local counter/tick works — see `@canvas-kit/designer`'s `KonvaDesigner` for the pattern).
 export interface ICommand {
     execute(): void;
     undo(): void;
