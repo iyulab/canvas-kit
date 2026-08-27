@@ -2,6 +2,15 @@
   "name": "@canvas-kit/viewer",
   "version": "0.2.0",
   "description": "Lightweight HTML viewer for canvas-kit",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iyulab/canvas-kit.git",
+    "directory": "packages/viewer"
+  },
+  "bugs": {
+    "url": "https://github.com/iyulab/canvas-kit/issues"
+  },
+  "homepage": "https://github.com/iyulab/canvas-kit#readme",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
