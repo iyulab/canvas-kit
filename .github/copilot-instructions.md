@@ -1,7 +1,7 @@
 **문서 구조 및 참조 가이드**
 - **/README.md**: 프로젝트 개요, 핵심 철학, 빠른 시작 가이드
-- **/docs/ARCHITECTURE.md**: formdown 문법과 사용법
-- **/docs/TASKS.md**: 작업 현황 및 계획
+- **/docs/ARCHITECTURE.md**: 패키지 구조(core/designer/viewer)와 기술 스택
+- 작업 현황·계획 같은 개발 추적 기록은 이 리포에 두지 않는다
 
 **문서 원칙**
 - 각 문서는 고유 목적을 가지며 중복을 최소화한다

@@ -411,3 +411,6 @@ venv.bak/
 
 # npm/pnpm pack output (local verification artifacts, never published from a checked-in tarball)
 *.tgz
+
+# Development tracking (handoffs, cycle logs, plans) lives in the enclosing workspace, not here.
+claudedocs/
