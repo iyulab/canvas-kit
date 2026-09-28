@@ -15,7 +15,7 @@ Canvas-Kit은 3개의 npm 패키지로 구성되며, UI 종속성에 따라 명�
 | 타입 | TypeScript 6 (strict) |
 | 렌더링 | Native Canvas 2D (core), Konva.js 10 (designer) |
 | 프레임워크 | React 19 (designer, viewer) |
-| 테스트 | Vitest 4 |
+| 테스트 | Vitest 5 |
 | 사이트 | Next.js 16 (Turbopack) + Tailwind CSS 4 |
 
 ## Package Structure
@@ -142,7 +142,7 @@ pnpm -w run test:packages   # core + viewer
 pnpm --filter @canvas-kit/core test:watch
 ```
 
-테스트 파일은 `src/*.test.ts(x)` 규칙을 따르며 Vitest 4 문법을 사용.
+테스트 파일은 `src/*.test.ts(x)` 규칙을 따르며 Vitest 5 문법을 사용.
 
 ## Build
 
