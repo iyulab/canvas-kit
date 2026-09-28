@@ -1,9 +1,6 @@
 {
   "about": "New majors not yet adopted, each with why and until when. Read by scripts/check-dependency-drift.mjs: an entry past its reviewBy date, or one matching nothing outdated, fails the check. Remove an entry in the commit that adopts the major.",
   "deferrals": [
-    { "package": "vitest", "major": 5, "reason": "adoption in progress — vite becomes a required peer", "reviewBy": "2026-10-12" },
-    { "package": "@testing-library/jest-dom", "major": 7, "reason": "adoption in progress — needs @testing-library/dom declared as a direct dependency", "reviewBy": "2026-10-12" },
-    { "package": "@types/node", "major": 26, "reason": "adoption in progress — demo site only", "reviewBy": "2026-10-12" },
-    { "package": "typescript", "major": 7, "reason": "adoption in progress — the demo site's Next.js build needs the TypeScript JS API, which 7.0 does not ship; to be checked per package", "reviewBy": "2026-10-12" }
+    {"package": "typescript", "major": 7, "reason": "the packages build their declarations with tsup --dts, which calls the TypeScript JS API; 7.0 ships only the compiler binary (the API returns in 7.1). Adding 7 anywhere in the workspace also makes pnpm resolve tsup's peer to it. The demo site's Next.js build does work on 7.0.", "reviewBy": "2026-11-30"}
   ]
 }

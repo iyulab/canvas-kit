@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Scene } from '@canvas-kit/core';
 import { KonvaDesigner } from './KonvaDesigner';
-import '@testing-library/jest-dom';
+import '@testing-library/jest-dom/vitest';
 
 // Mock Konva components
 vi.mock('react-konva', () => ({

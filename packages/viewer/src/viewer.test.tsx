@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { Viewer } from './viewer';
 import { CanvasKitRenderer, Scene } from '@canvas-kit/core';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import '@testing-library/jest-dom';
+import '@testing-library/jest-dom/vitest';
 
 // Mock the CanvasKitRenderer
 const mockRender = vi.fn();
