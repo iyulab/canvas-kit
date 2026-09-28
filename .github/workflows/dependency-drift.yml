@@ -1,0 +1,31 @@
+name: Dependency drift
+
+# The same check runs in CI on every push, but drift grows with time, not with commits: a quiet
+# month would otherwise pass unnoticed until the next push. This weekly run makes it visible as a
+# failed run on main, and catches deferrals in dependency-deferrals.json passing their review date.
+on:
+  schedule:
+    - cron: "23 0 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Dependency drift
+        run: pnpm check:dependency-drift

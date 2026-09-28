@@ -1,0 +1,9 @@
+{
+  "about": "New majors not yet adopted, each with why and until when. Read by scripts/check-dependency-drift.mjs: an entry past its reviewBy date, or one matching nothing outdated, fails the check. Remove an entry in the commit that adopts the major.",
+  "deferrals": [
+    { "package": "vitest", "major": 5, "reason": "adoption in progress — vite becomes a required peer", "reviewBy": "2026-10-12" },
+    { "package": "@testing-library/jest-dom", "major": 7, "reason": "adoption in progress — needs @testing-library/dom declared as a direct dependency", "reviewBy": "2026-10-12" },
+    { "package": "@types/node", "major": 26, "reason": "adoption in progress — demo site only", "reviewBy": "2026-10-12" },
+    { "package": "typescript", "major": 7, "reason": "adoption in progress — the demo site's Next.js build needs the TypeScript JS API, which 7.0 does not ship; to be checked per package", "reviewBy": "2026-10-12" }
+  ]
+}

@@ -28,7 +28,9 @@
     "type-check:all": "pnpm type-check:packages && pnpm --filter canvas-kit-site type-check",
     "type-check:site": "pnpm --filter canvas-kit-site type-check",
     "check": "pnpm build:all && pnpm type-check:all && pnpm test:packages",
-    "ci": "pnpm install --frozen-lockfile && pnpm check"
+    "ci": "pnpm install --frozen-lockfile && pnpm check",
+    "test:tooling": "node --test scripts/*.test.mjs",
+    "check:dependency-drift": "node scripts/check-dependency-drift.mjs --strict"
   },
   "repository": {
     "type": "git",

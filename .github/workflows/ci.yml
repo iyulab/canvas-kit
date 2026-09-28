@@ -38,6 +38,15 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      # Cheapest checks first. Dependencies behind already-published versions fail here; a new
+      # major must be adopted or deferred with a review date in dependency-deferrals.json
+      # (scripts/check-dependency-drift.mjs). Also runs weekly (dependency-drift.yml).
+      - name: Tooling script tests
+        run: pnpm test:tooling
+
+      - name: Dependency drift
+        run: pnpm check:dependency-drift
+
       - name: Build (all packages + site)
         run: pnpm build:all
 
