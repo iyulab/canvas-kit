@@ -161,10 +161,10 @@ pnpm check
 pnpm check:dependency-drift
 ```
 
-CI also fails when a dependency falls behind: an in-range gap of two or more minors, or a new
-major that is neither adopted nor recorded in [`dependency-deferrals.json`](dependency-deferrals.json)
-with a reason and a review date (the check fails again once that date passes). It runs on every
-push and weekly.
+CI also fails when a dependency falls behind: an in-range gap of two or more minors, or a
+breaking release — a new major, or below 1.0 a new minor — that is neither adopted nor recorded in
+[`dependency-deferrals.json`](dependency-deferrals.json) with a reason and a review date (the check
+fails again once that date passes). It runs on every push and weekly.
 
 ## 📈 Performance
 

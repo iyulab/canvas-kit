@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { minorGap, classify, staleDeferrals, readDeferrals, toEntries } from './check-dependency-drift.mjs';
+import { minorGap, breakingLine, classify, staleDeferrals, readDeferrals, toEntries } from './check-dependency-drift.mjs';
 
 const today = '2026-10-01';
 
@@ -32,9 +32,29 @@ test('a deferral for one major does not excuse the next', () => {
   assert.equal(classify({ name: 'vitest', current: '4.1.11', wanted: '4.1.11', latest: '6.0.0' }, { deferrals, today }).verdict, 'drift');
 });
 
-test('same major, five or more minors past the declared range is drift; fewer is reported', () => {
-  assert.equal(classify({ name: 'x', current: '0.16.2', wanted: '0.16.2', latest: '0.21.0' }, { today }).verdict, 'drift');
-  assert.equal(classify({ name: 'x', current: '0.16.2', wanted: '0.16.2', latest: '0.20.9' }, { today }).verdict, 'info');
+test('same major, five or more minors past a narrower-than-caret range is drift; fewer is reported', () => {
+  // only a tilde or exact pin can leave a same-major release outside the range at 1.x and up
+  assert.equal(classify({ name: 'x', current: '8.0.2', wanted: '8.0.2', latest: '8.5.0' }, { today }).verdict, 'drift');
+  assert.equal(classify({ name: 'x', current: '8.0.2', wanted: '8.0.2', latest: '8.4.9' }, { today }).verdict, 'info');
+});
+
+test('breakingLine is the major from 1.0 on, and major.minor below it', () => {
+  assert.equal(breakingLine('5.2.1'), '5');
+  assert.equal(breakingLine('0.24.0'), '0.24');
+});
+
+test('a 0.x minor past the caret range is a breaking release: drift without a deferral, deferred by its exact line', () => {
+  const entry = { name: 'x', current: '0.4.2', wanted: '0.4.2', latest: '0.5.1' };
+  assert.equal(classify(entry, { today }).verdict, 'drift');
+  const deferrals = [{ package: 'x', major: 0, minor: 5, reason: 'r', reviewBy: '2026-10-15' }];
+  assert.equal(classify(entry, { deferrals, today }).verdict, 'deferred');
+  assert.equal(classify({ ...entry, latest: '0.6.0' }, { deferrals, today }).verdict, 'drift');
+  assert.equal(staleDeferrals(deferrals, [{ ...entry, latest: '0.6.0' }]).length, 1);
+});
+
+test('an installed version ahead of the registry latest tag is reported, not drift', () => {
+  assert.equal(classify({ name: 'x', current: '30.1.1', wanted: '30.1.1', latest: '29.1.1' }, { today }).verdict, 'info');
+  assert.equal(classify({ name: 'x', current: '0.6.0', wanted: '0.6.0', latest: '0.5.1' }, { today }).verdict, 'info');
 });
 
 test('staleDeferrals flags entries that match nothing outdated', () => {
@@ -57,6 +77,7 @@ test("the repository's deferral ledger is well-formed", () => {
   for (const d of readDeferrals()) {
     assert.equal(typeof d.package, 'string');
     assert.ok(Number.isInteger(d.major), `${d.package}: major must be an integer`);
+    if (d.major === 0) assert.ok(Number.isInteger(d.minor), `${d.package}: a 0.x entry names its minor line`);
     assert.ok(typeof d.reason === 'string' && d.reason.length > 0, `${d.package}: reason required`);
     assert.match(d.reviewBy, /^\d{4}-\d{2}-\d{2}$/, `${d.package}: reviewBy must be YYYY-MM-DD`);
   }

@@ -1,5 +1,5 @@
 {
-  "about": "New majors not yet adopted, each with why and until when. Read by scripts/check-dependency-drift.mjs: an entry past its reviewBy date, or one matching nothing outdated, fails the check. Remove an entry in the commit that adopts the major.",
+  "about": "Breaking releases not yet adopted — a new major, or below 1.0 a new minor (give `minor` too) — each with why and until when. Read by scripts/check-dependency-drift.mjs: an entry past its reviewBy date, or one matching nothing outdated, fails the check. Remove an entry in the commit that adopts the major.",
   "deferrals": [
     {"package": "typescript", "major": 7, "reason": "the packages build their declarations with tsup --dts, which calls the TypeScript JS API; 7.0 ships only the compiler binary (the API returns in 7.1). Adding 7 anywhere in the workspace also makes pnpm resolve tsup's peer to it. The demo site's Next.js build does work on 7.0.", "reviewBy": "2026-11-30"}
   ]

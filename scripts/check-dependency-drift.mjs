@@ -9,11 +9,12 @@
 // Rules, per dependency reported by `pnpm outdated -r` (workspace packages are not reported):
 // - Within the declared range: a gap of two or more minors fails; a patch or single-minor gap is
 //   reported only, so routine upstream churn does not turn CI red.
-// - Outside the declared range: a new major is a deliberate adoption decision, so it fails
-//   unless `dependency-deferrals.json` records why it is deferred and until when. An expired
-//   deferral fails, and so does one that no longer matches anything (a stale entry would
-//   silently excuse the next major of the same number). A gap of five or more minors within the
-//   same major fails regardless.
+// - Outside the declared range: a breaking release — a new major, or below 1.0 a new minor (the
+//   line a caret range stops at, since 0.x minors may break) — is a deliberate adoption decision,
+//   so it fails unless `dependency-deferrals.json` records why it is deferred and until when. An
+//   expired deferral fails, and so does one that no longer matches anything (a stale entry would
+//   silently excuse the next release of that line). A gap of five or more minors within one line
+//   (a tilde or exact pin at 1.x and up) fails regardless.
 //
 // Usage:
 //   node scripts/check-dependency-drift.mjs            # report only, exit 0
@@ -27,8 +28,23 @@ export const MINOR_GAP_THRESHOLD = 5;
 export const IN_RANGE_MINOR_GAP = 2;
 
 export function parseVersion(v) {
-  const [major, minor] = v.split('.').map(n => parseInt(n, 10));
-  return { major, minor };
+  const [major, minor, patch] = v.split('.').map(n => parseInt(n, 10));
+  return { major, minor, patch };
+}
+
+// The release line within which updates are expected to be compatible — what a caret range
+// spans: the major from 1.0 on, and major.minor below it.
+export function breakingLine(v) {
+  const { major, minor } = parseVersion(v);
+  return major > 0 ? `${major}` : `0.${minor}`;
+}
+
+const deferralLine = d => (d.major > 0 ? `${d.major}` : `0.${d.minor}`);
+
+function compareVersions(a, b) {
+  const x = parseVersion(a);
+  const y = parseVersion(b);
+  return x.major - y.major || x.minor - y.minor || (x.patch || 0) - (y.patch || 0);
 }
 
 // Minors from one version to another of the same major; Infinity across majors.
@@ -39,8 +55,8 @@ export function minorGap(from, to) {
 }
 
 export function findDeferral(deferrals, name, latest) {
-  const { major } = parseVersion(latest);
-  return deferrals.find(d => d.package === name && d.major === major);
+  const line = breakingLine(latest);
+  return deferrals.find(d => d.package === name && deferralLine(d) === line);
 }
 
 // Classifies one outdated entry. Pure — the ledger and `today` (YYYY-MM-DD) are passed in, so
@@ -54,10 +70,16 @@ export function classify({ name, current, wanted, latest }, { deferrals = [], to
     return { verdict: 'info', reason: 'small in-range gap' };
   }
   if (current === latest) return { verdict: 'clean', reason: null };
-  if (parseVersion(latest).major !== parseVersion(current).major) {
+  // `latest` can sit behind what is installed (a stale local metadata cache, or a tag moved
+  // back) — nothing newer exists to adopt, so it is reported, never drift.
+  if (compareVersions(latest, current) < 0) {
+    return { verdict: 'info', reason: `installed ahead of the registry latest tag (${latest})` };
+  }
+  if (breakingLine(latest) !== breakingLine(current)) {
     const deferral = findDeferral(deferrals, name, latest);
     if (!deferral) {
-      return { verdict: 'drift', reason: `new major ${latest} — adopt it, or record why not in dependency-deferrals.json` };
+      const what = parseVersion(latest).major > 0 ? `new major ${latest}` : `new 0.x line ${latest} (past the caret range)`;
+      return { verdict: 'drift', reason: `${what} — adopt it, or record why not in dependency-deferrals.json` };
     }
     if (deferral.reviewBy < today) {
       return { verdict: 'drift', reason: `deferral expired on ${deferral.reviewBy} — adopt ${latest} or renew it with a current reason` };
@@ -74,7 +96,7 @@ export function classify({ name, current, wanted, latest }, { deferrals = [], to
 export function staleDeferrals(deferrals, entries) {
   return deferrals.filter(d => !entries.some(e =>
     e.name === d.package && e.current === e.wanted
-    && parseVersion(e.latest).major === d.major && parseVersion(e.current).major !== d.major));
+    && breakingLine(e.latest) === deferralLine(d) && breakingLine(e.current) !== deferralLine(d)));
 }
 
 export function readDeferrals(file = fileURLToPath(new URL('../dependency-deferrals.json', import.meta.url))) {
@@ -126,12 +148,12 @@ function main() {
     found.info.forEach(e => console.log(line(e)));
   }
   if (found.deferred.length > 0) {
-    console.log('\nDeferred majors (dependency-deferrals.json):');
+    console.log('\nDeferred breaking releases (dependency-deferrals.json):');
     found.deferred.forEach(e => console.log(line(e)));
   }
   if (stale.length > 0) {
     console.log('\nSTALE DEFERRALS — these entries match nothing outdated; remove them:');
-    stale.forEach(d => console.log(`  ${d.package}@${d.major}`));
+    stale.forEach(d => console.log(`  ${d.package}@${deferralLine(d)}`));
   }
   if (found.drift.length > 0) {
     console.log('\nDEPENDENCY DRIFT:');
