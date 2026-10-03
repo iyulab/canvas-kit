@@ -1,6 +1,6 @@
 {
   "name": "@canvas-kit/core",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "UI-independent data engine for canvas-kit",
   "license": "MIT",
   "repository": {
