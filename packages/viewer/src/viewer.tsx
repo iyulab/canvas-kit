@@ -48,6 +48,11 @@ export interface ViewerTapEvent {
 export interface FitToRectOptions {
   /** Space (CSS px) kept clear on every side of the rect. Default 0. */
   padding?: number;
+  /**
+   * Upper bound on the fitted scale for this call, within the viewer's own `minScale`/`maxScale` —
+   * e.g. `1` shrinks a large rect to fit but never magnifies a small one past its natural size.
+   */
+  maxScale?: number;
 }
 
 export interface ViewerHandle {
@@ -218,7 +223,8 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
 
   const fit = useCallback(
     (rect: Rect, options: FitToRectOptions) => {
-      applyTransform(fitTransform({ width, height }, rect, { padding: options.padding, minScale, maxScale }));
+      const fitMaxScale = Math.max(minScale, Math.min(options.maxScale ?? maxScale, maxScale));
+      applyTransform(fitTransform({ width, height }, rect, { padding: options.padding, minScale, maxScale: fitMaxScale }));
     },
     [width, height, minScale, maxScale, applyTransform]
   );

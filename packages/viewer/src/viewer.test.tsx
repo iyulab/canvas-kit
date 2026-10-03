@@ -525,6 +525,24 @@ describe('Viewer', () => {
       expect(onTransformChange.mock.calls[1][0].scale).toBe(4);
     });
 
+    it("caps the fitted scale per call with options.maxScale, inside the viewer's own bounds", () => {
+      const ref = createRef<ViewerHandle>();
+      const onTransformChange = vi.fn();
+      render(<Viewer ref={ref} width={400} height={200} maxScale={4} onTransformChange={onTransformChange} />);
+
+      // A small rect would fit at 2× — capped at 1 it stays at natural size, centered.
+      act(() => ref.current!.fitToRect({ x: 0, y: 0, width: 100, height: 100 }, { maxScale: 1 }));
+      expect(onTransformChange).toHaveBeenLastCalledWith({ x: 150, y: 50, scale: 1 });
+
+      // A large rect still shrinks to fit — the cap only bounds magnification.
+      act(() => ref.current!.fitToRect({ x: 0, y: 0, width: 800, height: 400 }, { maxScale: 1 }));
+      expect(onTransformChange).toHaveBeenLastCalledWith({ x: 0, y: 0, scale: 0.5 });
+
+      // A cap above the viewer's own maxScale cannot lift it.
+      act(() => ref.current!.fitToRect({ x: 0, y: 0, width: 10, height: 10 }, { maxScale: 100 }));
+      expect(onTransformChange.mock.lastCall![0].scale).toBe(4);
+    });
+
     it('updates the rendered transform in uncontrolled mode', () => {
       const ref = createRef<ViewerHandle>();
       const scene = new Scene();
