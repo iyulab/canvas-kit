@@ -9,4 +9,6 @@ export * from './commands';
 export * from './clipboard';
 export type * from './types';
 export { IDENTITY_TRANSFORM } from './types';
+export { viewToScene, sceneToView, fitTransform } from './transform';
+export type { Size, FitTransformOptions } from './transform';
 export type { Point, Rect, SelectionMode } from './selection';
