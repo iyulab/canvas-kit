@@ -47,6 +47,9 @@ jobs:
       - name: Dependency drift
         run: pnpm check:dependency-drift
 
+      - name: Lint
+        run: pnpm lint
+
       - name: Build (all packages + site)
         run: pnpm build:all
 
