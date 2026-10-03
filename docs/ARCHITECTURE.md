@@ -79,7 +79,7 @@ CommandHistory는 `addEventListener/removeEventListener`로 상태 변경을 외
 
 | 컴포넌트 | 책임 |
 |----------|------|
-| `KonvaDesigner` | Konva Stage 기반 편집기 (선택, 이동, 리사이즈, 회전) |
+| `KonvaDesigner` | Konva Stage 기반 편집기 (선택, 이동, 리사이즈, 회전) + 뷰포트(아래) |
 | `AdvancedDesigner` | 멀티 도구 편집기 (select/draw/text/rect/circle) |
 | `FreeDrawingCanvas` | Konva 기반 자유 그리기 (브러시/지우개) |
 | `EditableText` | 인라인 텍스트 편집 |
@@ -95,6 +95,20 @@ CommandHistory는 `addEventListener/removeEventListener`로 상태 변경을 외
 | rect | 클릭-드래그로 Rect 생성 → AddCommand | 4 |
 | circle | 클릭(중심)-드래그로 Circle 생성 → AddCommand | 5 |
 
+## 뷰포트 계약 (viewer · designer 공통)
+
+두 컴포넌트는 같은 뷰포트 언어를 쓴다. 좌표 수식(`viewToScene`/`sceneToView`/`fitTransform`/`zoomAt`)은 core `transform.ts` 한 곳.
+
+| 항목 | 동작 |
+|------|------|
+| 크기 | `width`/`height` 생략 시 부모를 채우고 리사이즈를 따름(transform 유지). `onViewportResize`가 크기를 보고 |
+| transform | `transform` + `onTransformChange`면 controlled(스스로 바꾸지 않고 다음 값만 보고), 생략하면 내부 소유(identity 시작) |
+| 팬/줌 | 드래그 팬(designer는 빈 영역에서 시작한 드래그만 — 도형 위 드래그는 도형 이동), 휠은 포인터 기준 줌(`minScale`/`maxScale`) |
+| fit | handle `fitToRect(rect, { padding, maxScale })` — 측정 전 요청은 보류했다가 크기가 생기면 1회 적용 |
+| 키보드 | viewer: 포커스 가능(`ariaLabel`), 화살표 팬·`+`/`-` 줌. designer: 미정(화살표의 도형 이동 관례와 충돌) |
+
+designer는 transform을 Konva Stage에 적용하므로 드래그·리사이즈가 보고하는 위치·크기는 언제나 장면 좌표다.
+
 ## Project Structure
 
 ```
@@ -105,7 +119,7 @@ packages/
 │   ├── renderer.ts     — CanvasKitRenderer
 │   ├── hit-test.ts     — HitTest
 │   ├── selection.ts    — SelectionManager, SelectionUtils
-│   ├── transform.ts    — viewToScene/sceneToView, fitTransform (뷰 transform 좌표 계산)
+│   ├── transform.ts    — viewToScene/sceneToView, fitTransform, zoomAt (뷰 transform 좌표 계산)
 │   ├── commands.ts     — Command pattern, CommandHistory
 │   ├── clipboard.ts    — Clipboard, Copy/Cut/Paste/Duplicate commands
 │   └── index.ts        — public exports
@@ -139,7 +153,7 @@ site/
 ## Testing
 
 ```bash
-pnpm -w run test:packages   # core + viewer
+pnpm -w run test:packages   # core + viewer + designer
 pnpm --filter @canvas-kit/core test:watch
 ```
 
