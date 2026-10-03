@@ -62,6 +62,33 @@ import { Viewer } from '@canvas-kit/viewer';
 <Viewer width={800} height={600} scene={scene} />
 ```
 
+- **Sizing** — omit `width`/`height` and the viewer fills its parent, following resizes (the
+  pan/zoom transform is kept). The canvas is rendered at `devicePixelRatio` for sharp output.
+- **Pan/zoom** — wheel zooms around the pointer, drag pans. Pass `transform` +
+  `onTransformChange` to control it; `minScale`/`maxScale` bound the zoom.
+- **Taps** — `onTap` fires for a press and release that stays within `tapThreshold` (default
+  4px), with the point in scene coordinates. Presses on overlay items are left to the items.
+- **Fit to a region** — `ref.current.fitToRect(rect, { padding })` through a `ViewerHandle` ref,
+  or compute it yourself with the pure `fitTransform(viewport, rect, options)`.
+  `viewToScene`/`sceneToView` convert points under a transform.
+- **Theming** — the border and background read `--ck-viewer-border` (default
+  `1px solid #ccc`) and `--ck-viewer-background` (default `transparent`); `className`/`style`
+  go to the container.
+
+```tsx
+const viewer = useRef<ViewerHandle>(null);
+
+<div style={{ height: '100%', '--ck-viewer-border': 'none' } as React.CSSProperties}>
+  <Viewer
+    ref={viewer}
+    scene={scene}
+    onTap={({ scene: point }) => select(scene.getObjectAtPoint(point.x, point.y))}
+  />
+</div>;
+
+viewer.current?.fitToRect({ x: 0, y: 0, width: 1200, height: 800 }, { padding: 24 });
+```
+
 ### Core (Data Processing)
 
 ```bash

@@ -1,15 +1,18 @@
-import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import React, { createRef } from 'react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { Viewer } from './viewer';
+import type { ViewerHandle } from './viewer';
 import { CanvasKitRenderer, Scene } from '@canvas-kit/core';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 
 // Mock the CanvasKitRenderer
 const mockRender = vi.fn();
 const mockClear = vi.fn();
 
-vi.mock('@canvas-kit/core', () => {
+// 렌더러·Scene만 가짜로 — 좌표 변환 같은 순수 함수는 실제 구현을 그대로 쓴다.
+vi.mock('@canvas-kit/core', async importOriginal => {
+  const actual = await importOriginal<typeof import('@canvas-kit/core')>();
   const MockCanvasKitRenderer = vi.fn(function (this: Record<string, unknown>) {
     this.render = mockRender;
     this.clear = mockClear;
@@ -23,6 +26,7 @@ vi.mock('@canvas-kit/core', () => {
   });
 
   return {
+    ...actual,
     CanvasKitRenderer: MockCanvasKitRenderer,
     Scene: MockScene,
     IDENTITY_TRANSFORM: { x: 0, y: 0, scale: 1 },
@@ -253,6 +257,247 @@ describe('Viewer', () => {
       );
       const [, transformAfterRerender] = mockRender.mock.calls[mockRender.mock.calls.length - 1];
       expect(transformAfterRerender).toEqual(reported);
+    });
+  });
+  describe('tap (press and release without dragging)', () => {
+    // jsdom의 getBoundingClientRect는 (0,0)에 놓이므로 client 좌표 = 뷰 좌표.
+    it('reports the tapped point in scene coordinates under the current transform', () => {
+      const onTap = vi.fn();
+      render(<Viewer width={200} height={200} transform={{ x: 10, y: 20, scale: 2 }} onTap={onTap} />);
+      const container = screen.getByTestId('viewer-container');
+
+      fireEvent.pointerDown(container, { clientX: 50, clientY: 60, pointerId: 1, button: 0 });
+      fireEvent.pointerUp(container, { clientX: 50, clientY: 60, pointerId: 1, button: 0 });
+
+      expect(onTap).toHaveBeenCalledTimes(1);
+      expect(onTap.mock.calls[0][0]).toMatchObject({
+        scene: { x: 20, y: 20 },
+        client: { x: 50, y: 60 },
+        button: 0,
+      });
+    });
+
+    it('carries modifier keys and pointer type', () => {
+      const onTap = vi.fn();
+      render(<Viewer width={200} height={200} onTap={onTap} />);
+      const container = screen.getByTestId('viewer-container');
+
+      fireEvent.pointerDown(container, { clientX: 5, clientY: 5, pointerId: 1, shiftKey: true, pointerType: 'pen' });
+      fireEvent.pointerUp(container, { clientX: 5, clientY: 5, pointerId: 1, shiftKey: true, pointerType: 'pen' });
+
+      expect(onTap.mock.calls[0][0]).toMatchObject({ shiftKey: true, altKey: false, pointerType: 'pen' });
+    });
+
+    it('treats jitter within the threshold as a tap and does not pan', () => {
+      const onTap = vi.fn();
+      const onTransformChange = vi.fn();
+      render(<Viewer width={200} height={200} onTap={onTap} onTransformChange={onTransformChange} />);
+      const container = screen.getByTestId('viewer-container');
+
+      fireEvent.pointerDown(container, { clientX: 100, clientY: 100, pointerId: 1 });
+      fireEvent.pointerMove(container, { clientX: 102, clientY: 101, pointerId: 1 });
+      fireEvent.pointerUp(container, { clientX: 102, clientY: 101, pointerId: 1 });
+
+      expect(onTransformChange).not.toHaveBeenCalled();
+      expect(onTap).toHaveBeenCalledTimes(1);
+    });
+
+    it('pans instead of tapping once the pointer moves past the threshold', () => {
+      const onTap = vi.fn();
+      const onTransformChange = vi.fn();
+      render(<Viewer width={200} height={200} onTap={onTap} onTransformChange={onTransformChange} />);
+      const container = screen.getByTestId('viewer-container');
+
+      fireEvent.pointerDown(container, { clientX: 100, clientY: 100, pointerId: 1 });
+      fireEvent.pointerMove(container, { clientX: 110, clientY: 100, pointerId: 1 });
+      fireEvent.pointerMove(container, { clientX: 100, clientY: 100, pointerId: 1 });
+      fireEvent.pointerUp(container, { clientX: 100, clientY: 100, pointerId: 1 });
+
+      expect(onTap).not.toHaveBeenCalled();
+      // the pan follows the full pointer delta once started — no lag by the threshold distance
+      expect(onTransformChange.mock.calls[0][0]).toEqual({ x: 10, y: 0, scale: 1 });
+    });
+
+    it('honors a custom tapThreshold', () => {
+      const onTap = vi.fn();
+      render(<Viewer width={200} height={200} onTap={onTap} tapThreshold={20} />);
+      const container = screen.getByTestId('viewer-container');
+
+      fireEvent.pointerDown(container, { clientX: 100, clientY: 100, pointerId: 1 });
+      fireEvent.pointerMove(container, { clientX: 110, clientY: 110, pointerId: 1 });
+      fireEvent.pointerUp(container, { clientX: 110, clientY: 110, pointerId: 1 });
+
+      expect(onTap).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves taps on overlay items to the items themselves', () => {
+      const onTap = vi.fn();
+      render(
+        <Viewer
+          width={200}
+          height={200}
+          onTap={onTap}
+          overlays={[{ id: 'w1', x: 0, y: 0, width: 50, height: 50, content: <button>widget</button> }]}
+        />
+      );
+
+      const button = screen.getByText('widget');
+      fireEvent.pointerDown(button, { clientX: 10, clientY: 10, pointerId: 1 });
+      fireEvent.pointerUp(button, { clientX: 10, clientY: 10, pointerId: 1 });
+
+      expect(onTap).not.toHaveBeenCalled();
+    });
+
+    it('does not report a tap when the pointer is cancelled', () => {
+      const onTap = vi.fn();
+      render(<Viewer width={200} height={200} onTap={onTap} />);
+      const container = screen.getByTestId('viewer-container');
+
+      fireEvent.pointerDown(container, { clientX: 10, clientY: 10, pointerId: 1 });
+      fireEvent.pointerCancel(container, { clientX: 10, clientY: 10, pointerId: 1 });
+
+      expect(onTap).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('sizing', () => {
+    let resizeCallback: ResizeObserverCallback | undefined;
+    const originalResizeObserver = globalThis.ResizeObserver;
+
+    beforeEach(() => {
+      resizeCallback = undefined;
+      globalThis.ResizeObserver = class {
+        constructor(cb: ResizeObserverCallback) {
+          resizeCallback = cb;
+        }
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      } as unknown as typeof ResizeObserver;
+    });
+
+    afterEach(() => {
+      globalThis.ResizeObserver = originalResizeObserver;
+    });
+
+    function resizeTo(width: number, height: number) {
+      act(() => {
+        resizeCallback?.(
+          [{ contentRect: { width, height } } as unknown as ResizeObserverEntry],
+          {} as ResizeObserver
+        );
+      });
+    }
+
+    it('fills its container when width and height are omitted', () => {
+      render(<Viewer scene={new Scene()} />);
+      const container = screen.getByTestId('viewer-container');
+      expect(container.style.width).toBe('100%');
+      expect(container.style.height).toBe('100%');
+
+      resizeTo(320, 180);
+
+      const canvas = screen.getByTestId('canvas');
+      expect(canvas).toHaveAttribute('width', '320');
+      expect(canvas).toHaveAttribute('height', '180');
+    });
+
+    it('keeps the transform across container resizes', () => {
+      const scene = new Scene();
+      render(<Viewer scene={scene} transform={{ x: 5, y: 6, scale: 3 }} />);
+
+      resizeTo(320, 180);
+      mockRender.mockClear();
+      resizeTo(640, 360);
+
+      expect(mockRender).toHaveBeenLastCalledWith(scene, { x: 5, y: 6, scale: 3 });
+    });
+
+    it('uses explicit width/height as-is and does not follow the container', () => {
+      render(<Viewer width={100} height={80} />);
+      resizeTo(999, 999);
+
+      const canvas = screen.getByTestId('canvas');
+      expect(canvas).toHaveAttribute('width', '100');
+      expect(canvas).toHaveAttribute('height', '80');
+    });
+  });
+
+  describe('device pixel ratio', () => {
+    const originalRatio = window.devicePixelRatio;
+
+    afterEach(() => {
+      Object.defineProperty(window, 'devicePixelRatio', { value: originalRatio, configurable: true });
+    });
+
+    it('sizes the canvas backing store by devicePixelRatio and scales rendering to match', () => {
+      Object.defineProperty(window, 'devicePixelRatio', { value: 2, configurable: true });
+      const scene = new Scene();
+      render(<Viewer width={100} height={50} scene={scene} transform={{ x: 10, y: 5, scale: 1.5 }} />);
+
+      const canvas = screen.getByTestId('canvas');
+      expect(canvas).toHaveAttribute('width', '200');
+      expect(canvas).toHaveAttribute('height', '100');
+      expect(canvas.style.width).toBe('100px');
+      expect(canvas.style.height).toBe('50px');
+      expect(mockRender).toHaveBeenLastCalledWith(scene, { x: 20, y: 10, scale: 3 });
+    });
+
+    it('keeps overlays in CSS px, unaffected by the pixel ratio', () => {
+      Object.defineProperty(window, 'devicePixelRatio', { value: 2, configurable: true });
+      render(<Viewer width={100} height={50} transform={{ x: 10, y: 5, scale: 1.5 }} />);
+
+      expect(screen.getByTestId('overlay-layer').style.transform).toBe('translate(10px, 5px) scale(1.5)');
+    });
+  });
+
+  describe('fitToRect (imperative handle)', () => {
+    it('reports the transform that fits a scene rect, honoring padding and the scale bounds', () => {
+      const ref = createRef<ViewerHandle>();
+      const onTransformChange = vi.fn();
+      render(
+        <Viewer ref={ref} width={200} height={100} maxScale={4} onTransformChange={onTransformChange} />
+      );
+
+      act(() => ref.current!.fitToRect({ x: 0, y: 0, width: 100, height: 100 }));
+      expect(onTransformChange).toHaveBeenLastCalledWith({ x: 50, y: 0, scale: 1 });
+
+      act(() => ref.current!.fitToRect({ x: 0, y: 0, width: 1, height: 1 }, { padding: 10 }));
+      expect(onTransformChange.mock.calls[1][0].scale).toBe(4);
+    });
+
+    it('updates the rendered transform in uncontrolled mode', () => {
+      const ref = createRef<ViewerHandle>();
+      const scene = new Scene();
+      render(<Viewer ref={ref} width={200} height={100} scene={scene} />);
+
+      act(() => ref.current!.fitToRect({ x: 0, y: 0, width: 100, height: 100 }));
+
+      expect(mockRender).toHaveBeenLastCalledWith(scene, { x: 50, y: 0, scale: 1 });
+    });
+  });
+
+  describe('chrome', () => {
+    it('does not put a border on the canvas itself (it would grow the canvas past its box)', () => {
+      render(<Viewer width={100} height={100} />);
+      expect(screen.getByTestId('canvas').style.border).toBe('');
+    });
+
+    it('draws the border from a CSS custom property with the previous look as fallback', () => {
+      render(<Viewer width={100} height={100} />);
+      const chrome = screen.getByTestId('viewer-chrome');
+      expect(chrome.getAttribute('style')).toContain('var(--ck-viewer-border, 1px solid #ccc)');
+      expect(chrome.style.pointerEvents).toBe('none');
+      expect(screen.getByTestId('viewer-container').getAttribute('style')).toContain(
+        'var(--ck-viewer-background, transparent)'
+      );
+    });
+
+    it('passes className and style through to the container', () => {
+      render(<Viewer width={100} height={100} className="dark-board" style={{ borderRadius: 8 }} />);
+      const container = screen.getByTestId('viewer-container');
+      expect(container).toHaveClass('dark-board');
+      expect(container.style.borderRadius).toBe('8px');
     });
   });
 });

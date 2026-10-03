@@ -1,11 +1,23 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { CanvasKitRenderer, Scene, IDENTITY_TRANSFORM } from '@canvas-kit/core';
-import type { Transform, OverlayItem } from '@canvas-kit/core';
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
+import { CanvasKitRenderer, Scene, IDENTITY_TRANSFORM, viewToScene, fitTransform } from '@canvas-kit/core';
+import type { Transform, OverlayItem, Point, Rect } from '@canvas-kit/core';
 
 const DEFAULT_MIN_SCALE = 0.1;
 const DEFAULT_MAX_SCALE = 10;
 // wheel deltaY -> zoom factor. Negative deltaY (scroll up) zooms in.
 const ZOOM_SENSITIVITY = 0.001;
+// 이 거리(CSS px) 안에서 눌렀다 떼면 탭, 넘으면 팬.
+const DEFAULT_TAP_THRESHOLD = 4;
+// 오버레이 아이템 DOM 표식 — 그 위에서 시작한 포인터는 탭으로 보고하지 않는다(아이템 몫).
+const OVERLAY_ATTRIBUTE = 'data-ck-overlay';
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -19,9 +31,40 @@ export interface ViewerOverlayItem extends OverlayItem {
 
 export type { Transform };
 
-interface ViewerProps {
-  width: number;
-  height: number;
+/** A press and release that stayed within `tapThreshold` — i.e. not a pan. */
+export interface ViewerTapEvent {
+  /** The tapped point in scene coordinates, under the transform at the time of the tap. */
+  scene: Point;
+  /** The tapped point in client (viewport) coordinates, as on the DOM event. */
+  client: Point;
+  button: number;
+  pointerType: string;
+  altKey: boolean;
+  ctrlKey: boolean;
+  metaKey: boolean;
+  shiftKey: boolean;
+}
+
+export interface FitToRectOptions {
+  /** Space (CSS px) kept clear on every side of the rect. Default 0. */
+  padding?: number;
+}
+
+export interface ViewerHandle {
+  /**
+   * Fits a scene rect into the current viewport (centered, `minScale`/`maxScale` respected) and
+   * reports the result through `onTransformChange` — in uncontrolled mode the viewer also adopts it.
+   */
+  fitToRect(rect: Rect, options?: FitToRectOptions): void;
+}
+
+export interface ViewerProps {
+  /**
+   * Viewport size in CSS px. Omit either to follow the container's size along that axis — the
+   * viewer then fills its parent (`100%`) and tracks resizes, keeping the transform as-is.
+   */
+  width?: number;
+  height?: number;
   scene?: Scene;
   /**
    * 뷰의 pan/zoom 상태를 지정하면 controlled 모드로 동작한다 — Viewer는 자체적으로 이 값을
@@ -31,7 +74,7 @@ interface ViewerProps {
   transform?: Transform;
   /** transform이 바뀔 때(휠/드래그 상호작용 결과) 호출된다. controlled/uncontrolled 모두에서 호출됨. */
   onTransformChange?: (transform: Transform) => void;
-  /** 휠 줌의 최소/최대 배율. 기본 0.1~10. */
+  /** 휠 줌의 최소/최대 배율. 기본 0.1~10. `fitToRect`도 이 범위를 따른다. */
   minScale?: number;
   maxScale?: number;
   /**
@@ -39,18 +82,91 @@ interface ViewerProps {
    * `transform`에 맞춰 캔버스와 동일한 좌표계로 pan/zoom된다.
    */
   overlays?: ViewerOverlayItem[];
+  /**
+   * Called when the pointer is pressed and released without moving past `tapThreshold`.
+   * Presses that start on an overlay item are left to that item and not reported here.
+   */
+  onTap?: (event: ViewerTapEvent) => void;
+  /** Movement (CSS px) below which a press counts as a tap rather than a pan. Default 4. */
+  tapThreshold?: number;
+  /**
+   * Applied to the container. The viewer's chrome reads `--ck-viewer-border` (default
+   * `1px solid #ccc`) and `--ck-viewer-background` (default `transparent`), so a theme can
+   * restyle it through those custom properties.
+   */
+  className?: string;
+  style?: React.CSSProperties;
 }
 
-export const Viewer: React.FC<ViewerProps> = ({
-  width,
-  height,
-  scene,
-  transform: controlledTransform,
-  onTransformChange,
-  minScale = DEFAULT_MIN_SCALE,
-  maxScale = DEFAULT_MAX_SCALE,
-  overlays = [],
-}: ViewerProps) => {
+function readPixelRatio(): number {
+  return typeof window !== 'undefined' && window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
+}
+
+// 창이 다른 배율의 모니터로 옮겨지거나 브라우저 줌이 바뀌면 devicePixelRatio가 달라진다 —
+// 현재 값에 대한 resolution 미디어 쿼리가 깨지는 순간을 듣고 다시 구독한다.
+function useDevicePixelRatio(): number {
+  const [ratio, setRatio] = useState(readPixelRatio);
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const query = window.matchMedia(`(resolution: ${ratio}dppx)`);
+    const update = () => setRatio(readPixelRatio());
+    query.addEventListener?.('change', update);
+    return () => query.removeEventListener?.('change', update);
+  }, [ratio]);
+  return ratio;
+}
+
+// width/height 중 생략된 축은 컨테이너 크기를 따른다.
+function useViewportSize(
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  width: number | undefined,
+  height: number | undefined
+): { width: number; height: number } {
+  const followsContainer = width === undefined || height === undefined;
+  const [measured, setMeasured] = useState({ width: 0, height: 0 });
+
+  useLayoutEffect(() => {
+    const element = containerRef.current;
+    if (!followsContainer || !element) return;
+    setMeasured({ width: element.clientWidth, height: element.clientHeight });
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(entries => {
+      const box = entries[entries.length - 1]?.contentRect;
+      if (box) setMeasured({ width: box.width, height: box.height });
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [containerRef, followsContainer]);
+
+  return { width: width ?? measured.width, height: height ?? measured.height };
+}
+
+interface PointerState {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  startTransform: Transform;
+  panning: boolean;
+  startedOnOverlay: boolean;
+}
+
+export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
+  {
+    width: widthProp,
+    height: heightProp,
+    scene,
+    transform: controlledTransform,
+    onTransformChange,
+    minScale = DEFAULT_MIN_SCALE,
+    maxScale = DEFAULT_MAX_SCALE,
+    overlays = [],
+    onTap,
+    tapThreshold = DEFAULT_TAP_THRESHOLD,
+    className,
+    style,
+  },
+  ref
+) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isControlled = controlledTransform !== undefined;
@@ -58,20 +174,27 @@ export const Viewer: React.FC<ViewerProps> = ({
     controlledTransform ?? IDENTITY_TRANSFORM
   );
   const transform = isControlled ? controlledTransform! : internalTransform;
+  const { width, height } = useViewportSize(containerRef, widthProp, heightProp);
+  const pixelRatio = useDevicePixelRatio();
 
-  // 드래그 중 시작 시점의 포인터 위치·transform을 들고 있는 ref (렌더를 유발하지 않아야 함)
-  const dragStateRef = useRef<{ pointerId: number; startX: number; startY: number; startTransform: Transform } | null>(null);
+  // 누른 시점의 포인터 위치·transform과 팬 진입 여부 (렌더를 유발하지 않아야 함)
+  const pointerStateRef = useRef<PointerState | null>(null);
 
   useEffect(() => {
     if (canvasRef.current && scene) {
+      // 캔버스 백킹 스토어는 장치 픽셀 단위 — 뷰 transform(CSS px)을 같은 비율로 키워 그린다.
+      const renderTransform =
+        pixelRatio === 1
+          ? transform
+          : { x: transform.x * pixelRatio, y: transform.y * pixelRatio, scale: transform.scale * pixelRatio };
       // 이미지가 아직 로딩 중이면 이번 프레임엔 그려지지 않는다 — 로딩이 끝나면 같은 renderer
       // 인스턴스로 다시 한번 그려서 반영한다(별도 React 상태 없이, canvas만 갱신).
       const renderer: CanvasKitRenderer = new CanvasKitRenderer(canvasRef.current, {
-        onImageLoad: () => renderer.render(scene, transform),
+        onImageLoad: () => renderer.render(scene, renderTransform),
       });
-      renderer.render(scene, transform);
+      renderer.render(scene, renderTransform);
     }
-  }, [scene, width, height, transform]);
+  }, [scene, width, height, pixelRatio, transform]);
 
   const applyTransform = useCallback(
     (next: Transform) => {
@@ -81,6 +204,16 @@ export const Viewer: React.FC<ViewerProps> = ({
       onTransformChange?.(next);
     },
     [isControlled, onTransformChange]
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      fitToRect(rect, options = {}) {
+        applyTransform(fitTransform({ width, height }, rect, { padding: options.padding, minScale, maxScale }));
+      },
+    }),
+    [width, height, minScale, maxScale, applyTransform]
   );
 
   const handleWheel = useCallback(
@@ -93,12 +226,11 @@ export const Viewer: React.FC<ViewerProps> = ({
       const newScale = clamp(transform.scale * factor, minScale, maxScale);
 
       // 포인터 아래의 씬 좌표가 줌 전후로 화면상 같은 위치에 남도록 x/y를 함께 보정
-      const scenePointX = (px - transform.x) / transform.scale;
-      const scenePointY = (py - transform.y) / transform.scale;
+      const scenePoint = viewToScene(transform, { x: px, y: py });
 
       applyTransform({
-        x: px - scenePointX * newScale,
-        y: py - scenePointY * newScale,
+        x: px - scenePoint.x * newScale,
+        y: py - scenePoint.y * newScale,
         scale: newScale,
       });
     },
@@ -107,35 +239,69 @@ export const Viewer: React.FC<ViewerProps> = ({
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      dragStateRef.current = {
+      const target = e.target as Element | null;
+      pointerStateRef.current = {
         pointerId: e.pointerId,
         startX: e.clientX,
         startY: e.clientY,
         startTransform: transform,
+        panning: false,
+        startedOnOverlay: !!target?.closest?.(`[${OVERLAY_ATTRIBUTE}]`),
       };
-      const target = e.currentTarget as { setPointerCapture?: (id: number) => void };
-      target.setPointerCapture?.(e.pointerId);
+      const container = e.currentTarget as { setPointerCapture?: (id: number) => void };
+      container.setPointerCapture?.(e.pointerId);
     },
     [transform]
   );
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      const drag = dragStateRef.current;
-      if (!drag || drag.pointerId !== e.pointerId) return;
+      const state = pointerStateRef.current;
+      if (!state || state.pointerId !== e.pointerId) return;
 
+      const dx = e.clientX - state.startX;
+      const dy = e.clientY - state.startY;
+      if (!state.panning) {
+        if (Math.hypot(dx, dy) <= tapThreshold) return;
+        state.panning = true;
+      }
+
+      // 문턱을 넘은 뒤에는 누른 지점부터의 전체 이동량을 따른다 — 문턱만큼 뒤처지지 않게.
       applyTransform({
-        x: drag.startTransform.x + (e.clientX - drag.startX),
-        y: drag.startTransform.y + (e.clientY - drag.startY),
-        scale: drag.startTransform.scale,
+        x: state.startTransform.x + dx,
+        y: state.startTransform.y + dy,
+        scale: state.startTransform.scale,
       });
     },
-    [applyTransform]
+    [applyTransform, tapThreshold]
   );
 
-  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (dragStateRef.current?.pointerId === e.pointerId) {
-      dragStateRef.current = null;
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const state = pointerStateRef.current;
+      if (state?.pointerId !== e.pointerId) return;
+      pointerStateRef.current = null;
+      if (state.panning || state.startedOnOverlay || !onTap) return;
+
+      const rect = containerRef.current?.getBoundingClientRect();
+      const view = { x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0) };
+      onTap({
+        scene: viewToScene(state.startTransform, view),
+        client: { x: e.clientX, y: e.clientY },
+        button: e.button,
+        pointerType: e.pointerType,
+        altKey: e.altKey,
+        ctrlKey: e.ctrlKey,
+        metaKey: e.metaKey,
+        shiftKey: e.shiftKey,
+      });
+    },
+    [onTap]
+  );
+
+  const handlePointerCancel = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (pointerStateRef.current?.pointerId === e.pointerId) {
+      pointerStateRef.current = null;
     }
   }, []);
 
@@ -143,19 +309,28 @@ export const Viewer: React.FC<ViewerProps> = ({
     <div
       ref={containerRef}
       data-testid="viewer-container"
-      style={{ position: 'relative', width, height, overflow: 'hidden', touchAction: 'none' }}
+      className={className}
+      style={{
+        position: 'relative',
+        width: widthProp ?? '100%',
+        height: heightProp ?? '100%',
+        overflow: 'hidden',
+        touchAction: 'none',
+        background: 'var(--ck-viewer-background, transparent)',
+        ...style,
+      }}
       onWheel={handleWheel}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
     >
       <canvas
         ref={canvasRef}
-        width={width}
-        height={height}
+        width={Math.round(width * pixelRatio)}
+        height={Math.round(height * pixelRatio)}
         data-testid="canvas"
-        style={{ border: '1px solid #ccc', position: 'absolute', top: 0, left: 0 }}
+        style={{ position: 'absolute', top: 0, left: 0, width, height }}
       />
       <div
         data-testid="overlay-layer"
@@ -177,6 +352,7 @@ export const Viewer: React.FC<ViewerProps> = ({
           <div
             key={overlay.id}
             data-testid={`overlay-${overlay.id}`}
+            {...{ [OVERLAY_ATTRIBUTE]: '' }}
             style={{
               position: 'absolute',
               left: overlay.x,
@@ -190,6 +366,18 @@ export const Viewer: React.FC<ViewerProps> = ({
           </div>
         ))}
       </div>
+      {/* 크롬(테두리)은 레이아웃에 끼지 않는 맨 위 레이어 — 캔버스 크기를 바꾸지 않고 포인터도 통과시킨다. */}
+      <div
+        data-testid="viewer-chrome"
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          boxSizing: 'border-box',
+          border: 'var(--ck-viewer-border, 1px solid #ccc)',
+          pointerEvents: 'none',
+        }}
+      />
     </div>
   );
-};
+});
