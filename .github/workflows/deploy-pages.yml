@@ -24,6 +24,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -35,20 +36,8 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: '24'
-      
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-      
-      - name: Setup pnpm cache
-        uses: actions/cache@v6
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-      
+          cache: pnpm
+
       - name: Setup Next.js cache
         uses: actions/cache@v6
         with:
@@ -56,120 +45,37 @@ jobs:
           key: ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-nextjs-
-      
+
       - name: Setup Pages
         uses: actions/configure-pages@v6
         with:
           static_site_generator: next
-      
+
+      # Every step fails the job when it fails: a broken build must not deploy (an earlier version of
+      # this workflow swallowed build errors and published a placeholder page instead).
       - name: Install dependencies
-        run: |
-          echo "Installing dependencies..."
-          echo "Current directory:"
-          pwd
-          echo "Directory contents:"
-          ls -la
-          echo "Workspace structure:"
-          cat pnpm-workspace.yaml || echo "No pnpm-workspace.yaml found"
-          pnpm config set store-dir ~/.pnpm-store
-          if [ -f pnpm-lock.yaml ]; then
-            echo "lockfile found, attempting frozen install..."
-            pnpm install --frozen-lockfile || {
-              echo "Frozen install failed, trying regular install..."
-              pnpm install
-            }
-          else
-            echo "No lockfile found, performing fresh install..."
-            pnpm install
-          fi
-          echo "Installed packages:"
-          pnpm list --depth=0
-      
-      - name: Build Canvas-Kit packages
-        run: |
-          echo "Building Canvas-Kit packages..."
-          echo "Available workspaces:"
-          pnpm list --depth=0 --json || echo "Could not list workspaces"
-          
-          echo "Building core package..."
-          if pnpm --filter @canvas-kit/core list > /dev/null 2>&1; then
-            pnpm --filter @canvas-kit/core build || echo "Core build failed"
-          else
-            echo "Core package not found, skipping..."
-          fi
-          
-          echo "Building viewer package..."
-          if pnpm --filter @canvas-kit/viewer list > /dev/null 2>&1; then
-            pnpm --filter @canvas-kit/viewer build || echo "Viewer build failed"
-          else
-            echo "Viewer package not found, skipping..."
-          fi
-          
-          echo "Building designer package..."
-          if pnpm --filter @canvas-kit/designer list > /dev/null 2>&1; then
-            pnpm --filter @canvas-kit/designer build || echo "Designer build failed"
-          else
-            echo "Designer package not found, skipping..."
-          fi
-        env:
-          GITHUB_ACTIONS: true
-          NODE_ENV: production
-      
-      - name: Build site with Next.js
-        run: |
-          echo "Building Next.js site..."
-          echo "Checking if site package exists..."
-          if pnpm --filter canvas-kit-site list > /dev/null 2>&1; then
-            echo "Site package found, building..."
-            pnpm --filter canvas-kit-site build
-          else
-            echo "Site package not found, trying direct build..."
-            cd site && pnpm build
-          fi
-          
-          echo "Checking build output..."
-          ls -la site/ || echo "Site directory not found"
-          
-          if [ -d "site/out" ]; then
-            echo "Static export found at site/out"
-            ls -la site/out/
-          elif [ -d "site/.next" ]; then
-            echo "Standard build found at site/.next, but we need static export"
-            echo "Trying to export static files..."
-            cd site && pnpm export || echo "Export failed"
-          else
-            echo "No build output found!"
-            echo "Site directory contents:"
-            ls -la site/ || echo "Site directory not accessible"
-            exit 1
-          fi
-        env:
-          GITHUB_ACTIONS: true
-          NODE_ENV: production
-      
-      - name: Verify build output
-        run: |
-          if [ -d "site/out" ] && [ "$(ls -A site/out)" ]; then
-            echo "✅ Build output verified at site/out"
-            echo "Output contents:"
-            find site/out -type f -name "*.html" | head -10
-          else
-            echo "❌ No valid build output found"
-            echo "Creating minimal fallback page..."
-            mkdir -p site/out
-            echo "<html><body><h1>Canvas-Kit</h1><p>Build in progress...</p></body></html>" > site/out/index.html
-          fi
-      
+        run: pnpm install --frozen-lockfile
+
+      # Builds the packages, then the site. site/next.config.ts switches to a static export under the
+      # repository's base path when GITHUB_ACTIONS is set, which Actions always does.
+      - name: Build packages and site
+        run: pnpm build:all
+
+      - name: Check the static export
+        run: test -f site/out/index.html
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
           path: ./site/out
+          retention-days: 1
 
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: build
     steps:
       - name: Deploy to GitHub Pages
