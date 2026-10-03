@@ -430,6 +430,48 @@ describe('Viewer', () => {
       expect(mockRender).toHaveBeenLastCalledWith(scene, { x: 5, y: 6, scale: 3 });
     });
 
+    it('defers a fitToRect requested before the container is measured until it is', () => {
+      const ref = createRef<ViewerHandle>();
+      const onTransformChange = vi.fn();
+      render(<Viewer ref={ref} onTransformChange={onTransformChange} />);
+
+      // jsdom lays nothing out, so the viewport is still 0×0 here — a fit now has nothing to fit into.
+      act(() => ref.current!.fitToRect({ x: 0, y: 0, width: 100, height: 100 }));
+      expect(onTransformChange).not.toHaveBeenCalled();
+
+      resizeTo(400, 200);
+      expect(onTransformChange).toHaveBeenCalledTimes(1);
+      expect(onTransformChange).toHaveBeenLastCalledWith({ x: 100, y: 0, scale: 2 });
+
+      // Applied once — later resizes keep the transform as-is.
+      resizeTo(800, 400);
+      expect(onTransformChange).toHaveBeenCalledTimes(1);
+    });
+
+    it('fits correctly when asked from a parent mount effect, before the measured size has rendered', () => {
+      const widthDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');
+      const heightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight');
+      Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => 400 });
+      Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get: () => 200 });
+      try {
+        const onTransformChange = vi.fn();
+        function Parent() {
+          const ref = React.useRef<ViewerHandle>(null);
+          React.useEffect(() => {
+            ref.current!.fitToRect({ x: 0, y: 0, width: 100, height: 100 });
+          }, []);
+          return <Viewer ref={ref} onTransformChange={onTransformChange} />;
+        }
+        render(<Parent />);
+
+        expect(onTransformChange).toHaveBeenCalledTimes(1);
+        expect(onTransformChange).toHaveBeenLastCalledWith({ x: 100, y: 0, scale: 2 });
+      } finally {
+        if (widthDescriptor) Object.defineProperty(HTMLElement.prototype, 'clientWidth', widthDescriptor);
+        if (heightDescriptor) Object.defineProperty(HTMLElement.prototype, 'clientHeight', heightDescriptor);
+      }
+    });
+
     it('uses explicit width/height as-is and does not follow the container', () => {
       render(<Viewer width={100} height={80} />);
       resizeTo(999, 999);

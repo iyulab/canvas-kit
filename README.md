@@ -69,7 +69,9 @@ import { Viewer } from '@canvas-kit/viewer';
 - **Taps** — `onTap` fires for a press and release that stays within `tapThreshold` (default
   4px), with the point in scene coordinates. Presses on overlay items are left to the items.
 - **Fit to a region** — `ref.current.fitToRect(rect, { padding })` through a `ViewerHandle` ref,
-  or compute it yourself with the pure `fitTransform(viewport, rect, options)`.
+  or compute it yourself with the pure `fitTransform(viewport, rect, options)`. A fit asked for
+  before a container-sized viewer has been measured (e.g. from a mount effect) is applied once it
+  has a size.
   `viewToScene`/`sceneToView` convert points under a transform.
 - **Theming** — the border and background read `--ck-viewer-border` (default
   `1px solid #ccc`) and `--ck-viewer-background` (default `transparent`); `className`/`style`

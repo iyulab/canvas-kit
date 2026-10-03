@@ -54,6 +54,8 @@ export interface ViewerHandle {
   /**
    * Fits a scene rect into the current viewport (centered, `minScale`/`maxScale` respected) and
    * reports the result through `onTransformChange` — in uncontrolled mode the viewer also adopts it.
+   * Called while a container-sized viewer is still unmeasured, the fit is held and applied once the
+   * viewport has a size.
    */
   fitToRect(rect: Rect, options?: FitToRectOptions): void;
 }
@@ -209,14 +211,38 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
     [isControlled, onTransformChange]
   );
 
+  // A fit asked for before the container has been measured (0 on either axis — e.g. from a parent's
+  // mount effect, which runs before the measured size has rendered) has nothing to fit into yet; it
+  // waits here and is applied once, as soon as the viewport has a size.
+  const pendingFitRef = useRef<{ rect: Rect; options: FitToRectOptions } | null>(null);
+
+  const fit = useCallback(
+    (rect: Rect, options: FitToRectOptions) => {
+      applyTransform(fitTransform({ width, height }, rect, { padding: options.padding, minScale, maxScale }));
+    },
+    [width, height, minScale, maxScale, applyTransform]
+  );
+
+  useIsomorphicLayoutEffect(() => {
+    const pending = pendingFitRef.current;
+    if (!pending || width <= 0 || height <= 0) return;
+    pendingFitRef.current = null;
+    fit(pending.rect, pending.options);
+  }, [width, height, fit]);
+
   useImperativeHandle(
     ref,
     () => ({
       fitToRect(rect, options = {}) {
-        applyTransform(fitTransform({ width, height }, rect, { padding: options.padding, minScale, maxScale }));
+        if (width <= 0 || height <= 0) {
+          pendingFitRef.current = { rect, options };
+          return;
+        }
+        pendingFitRef.current = null;
+        fit(rect, options);
       },
     }),
-    [width, height, minScale, maxScale, applyTransform]
+    [width, height, fit]
   );
 
   const handleWheel = useCallback(
