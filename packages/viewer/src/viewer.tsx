@@ -8,7 +8,7 @@ import React, {
   useState,
 } from 'react';
 import { CanvasKitRenderer, Scene, IDENTITY_TRANSFORM, viewToScene, fitTransform, zoomAt } from '@canvas-kit/core';
-import type { Transform, OverlayItem, Point, Rect } from '@canvas-kit/core';
+import type { Transform, OverlayItem, Point, Rect, Size } from '@canvas-kit/core';
 
 const DEFAULT_MIN_SCALE = 0.1;
 const DEFAULT_MAX_SCALE = 10;
@@ -77,6 +77,12 @@ export interface ViewerProps {
   transform?: Transform;
   /** transform이 바뀔 때(휠/드래그 상호작용 결과) 호출된다. controlled/uncontrolled 모두에서 호출됨. */
   onTransformChange?: (transform: Transform) => void;
+  /**
+   * Called with the viewport size (CSS px) once it is known and whenever it changes — for a
+   * container-sized viewer, each time the container resizes. With it a controlling owner can keep
+   * a rect fitted (`fitTransform`) as the viewport changes, for as long as it wants to.
+   */
+  onViewportResize?: (size: Size) => void;
   /** 휠 줌의 최소/최대 배율. 기본 0.1~10. `fitToRect`도 이 범위를 따른다. */
   minScale?: number;
   maxScale?: number;
@@ -163,6 +169,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
     scene,
     transform: controlledTransform,
     onTransformChange,
+    onViewportResize,
     minScale = DEFAULT_MIN_SCALE,
     maxScale = DEFAULT_MAX_SCALE,
     overlays = [],
@@ -181,6 +188,11 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
   );
   const transform = isControlled ? controlledTransform! : internalTransform;
   const { width, height } = useViewportSize(containerRef, widthProp, heightProp);
+  const onViewportResizeRef = useRef(onViewportResize);
+  onViewportResizeRef.current = onViewportResize;
+  useEffect(() => {
+    if (width > 0 && height > 0) onViewportResizeRef.current?.({ width, height });
+  }, [width, height]);
   const pixelRatio = useDevicePixelRatio();
 
   // 누른 시점의 포인터 위치·transform과 팬 진입 여부 (렌더를 유발하지 않아야 함)

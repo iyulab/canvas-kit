@@ -467,9 +467,32 @@ describe('Viewer', () => {
         expect(onTransformChange).toHaveBeenCalledTimes(1);
         expect(onTransformChange).toHaveBeenLastCalledWith({ x: 100, y: 0, scale: 2 });
       } finally {
+        // clientWidth/clientHeight normally live on Element.prototype, so there is usually no own
+        // descriptor to put back — removing the override is what restores them.
         if (widthDescriptor) Object.defineProperty(HTMLElement.prototype, 'clientWidth', widthDescriptor);
+        else delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth;
         if (heightDescriptor) Object.defineProperty(HTMLElement.prototype, 'clientHeight', heightDescriptor);
+        else delete (HTMLElement.prototype as { clientHeight?: number }).clientHeight;
       }
+    });
+
+    it('reports the viewport size once measured and on every resize', () => {
+      const onViewportResize = vi.fn();
+      render(<Viewer scene={new Scene()} onViewportResize={onViewportResize} />);
+      expect(onViewportResize).not.toHaveBeenCalled(); // jsdom measures 0×0 — no viewport yet
+
+      resizeTo(320, 180);
+      expect(onViewportResize).toHaveBeenLastCalledWith({ width: 320, height: 180 });
+      resizeTo(640, 360);
+      expect(onViewportResize).toHaveBeenLastCalledWith({ width: 640, height: 360 });
+      expect(onViewportResize).toHaveBeenCalledTimes(2);
+    });
+
+    it('reports an explicit viewport size too', () => {
+      const onViewportResize = vi.fn();
+      render(<Viewer width={100} height={80} onViewportResize={onViewportResize} />);
+      expect(onViewportResize).toHaveBeenCalledTimes(1);
+      expect(onViewportResize).toHaveBeenLastCalledWith({ width: 100, height: 80 });
     });
 
     it('uses explicit width/height as-is and does not follow the container', () => {

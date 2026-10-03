@@ -4,7 +4,7 @@ import {
     DrawingObject, Scene, defaultImageLoader, CommandHistory, MoveCommand, ResizeCommand,
     IDENTITY_TRANSFORM, fitTransform, zoomAt,
 } from '@canvas-kit/core';
-import type { Image as ImageShape, Transform, Rect as SceneRect } from '@canvas-kit/core';
+import type { Image as ImageShape, Transform, Rect as SceneRect, Size } from '@canvas-kit/core';
 import type Konva from 'konva';
 
 const DEFAULT_MIN_SCALE = 0.1;
@@ -99,6 +99,9 @@ export interface KonvaDesignerProps {
     transform?: Transform;
     /** Called whenever the transform changes — a pan, a wheel zoom, or `fitToRect`. */
     onTransformChange?: (transform: Transform) => void;
+    /** Called with the viewport size (CSS px) once it is known and whenever it changes — with it a
+     * controlling owner can keep a rect fitted (`fitTransform`) as the viewport changes. */
+    onViewportResize?: (size: Size) => void;
     /** Bounds of the wheel zoom (default 0.1–10). `fitToRect` stays within them too. */
     minScale?: number;
     maxScale?: number;
@@ -122,6 +125,7 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
     scene,
     transform: controlledTransform,
     onTransformChange,
+    onViewportResize,
     minScale = DEFAULT_MIN_SCALE,
     maxScale = DEFAULT_MAX_SCALE,
     onSceneChange,
@@ -133,6 +137,11 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
     const transformerRef = useRef<Konva.Transformer>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const { width, height } = useViewportSize(containerRef, widthProp, heightProp);
+    const onViewportResizeRef = useRef(onViewportResize);
+    onViewportResizeRef.current = onViewportResize;
+    useEffect(() => {
+        if (width > 0 && height > 0) onViewportResizeRef.current?.({ width, height });
+    }, [width, height]);
 
     // View transform — controlled when `transform` is given, otherwise owned here. Konva applies it
     // at the Stage, so objects (and the drag/resize positions Konva reports for them) stay in scene

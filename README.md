@@ -51,8 +51,8 @@ function App() {
 
 - **Viewport** — the same contract as the viewer below: omit `width`/`height` to fill the parent,
   drag empty space to pan, wheel to zoom around the pointer (`minScale`/`maxScale`), pass
-  `transform` + `onTransformChange` to control it, and `ref.current.fitToRect(rect, { padding,
-  maxScale })` through a `DesignerHandle` ref. Objects keep scene coordinates: drags and resizes
+  `transform` + `onTransformChange` to control it, `onViewportResize` to learn its size, and
+  `ref.current.fitToRect(rect, { padding, maxScale })` through a `DesignerHandle` ref. Objects keep scene coordinates: drags and resizes
   report scene positions and sizes at any zoom.
 
 ### Viewer (Display Only)
@@ -69,7 +69,8 @@ import { Viewer } from '@canvas-kit/viewer';
 ```
 
 - **Sizing** — omit `width`/`height` and the viewer fills its parent, following resizes (the
-  pan/zoom transform is kept). The canvas is rendered at `devicePixelRatio` for sharp output.
+  pan/zoom transform is kept; `onViewportResize` reports each new size, e.g. to keep a region
+  fitted with `fitTransform`). The canvas is rendered at `devicePixelRatio` for sharp output.
 - **Pan/zoom** — wheel zooms around the pointer, drag pans. Pass `transform` +
   `onTransformChange` to control it; `minScale`/`maxScale` bound the zoom.
 - **Taps** — `onTap` fires for a press and release that stays within `tapThreshold` (default

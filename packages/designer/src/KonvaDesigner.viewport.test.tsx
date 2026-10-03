@@ -180,6 +180,16 @@ describe('KonvaDesigner viewport', () => {
             expect(stageProps.height).toBe(180);
         });
 
+        it('reports the viewport size once measured and on every resize', () => {
+            const onViewportResize = vi.fn();
+            render(<KonvaDesigner scene={new Scene()} onViewportResize={onViewportResize} />);
+            expect(onViewportResize).not.toHaveBeenCalled();
+            resizeTo(320, 180);
+            expect(onViewportResize).toHaveBeenLastCalledWith({ width: 320, height: 180 });
+            resizeTo(640, 360);
+            expect(onViewportResize).toHaveBeenCalledTimes(2);
+        });
+
         it('uses explicit width/height as-is', () => {
             render(<KonvaDesigner width={100} height={80} scene={new Scene()} />);
             resizeTo(999, 999);
