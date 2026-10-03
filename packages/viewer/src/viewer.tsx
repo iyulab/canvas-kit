@@ -98,6 +98,9 @@ export interface ViewerProps {
   style?: React.CSSProperties;
 }
 
+// 서버 렌더링에서는 layout effect가 돌지 않고 React 18이 경고한다 — 브라우저에서만 layout effect.
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
 function readPixelRatio(): number {
   return typeof window !== 'undefined' && window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
 }
@@ -125,7 +128,7 @@ function useViewportSize(
   const followsContainer = width === undefined || height === undefined;
   const [measured, setMeasured] = useState({ width: 0, height: 0 });
 
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const element = containerRef.current;
     if (!followsContainer || !element) return;
     setMeasured({ width: element.clientWidth, height: element.clientHeight });
@@ -248,8 +251,6 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
         panning: false,
         startedOnOverlay: !!target?.closest?.(`[${OVERLAY_ATTRIBUTE}]`),
       };
-      const container = e.currentTarget as { setPointerCapture?: (id: number) => void };
-      container.setPointerCapture?.(e.pointerId);
     },
     [transform]
   );
@@ -264,6 +265,11 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
       if (!state.panning) {
         if (Math.hypot(dx, dy) <= tapThreshold) return;
         state.panning = true;
+        // 캡처는 팬이 시작된 뒤에만 — 누르는 순간 캡처하면 브라우저가 click 대상을 컨테이너로
+        // 바꿔 오버레이 아이템(버튼 등)의 click이 발화하지 않는다. 팬 중엔 캡처 덕에 포인터가
+        // 컨테이너 밖으로 나가도 계속 따라가고, 끝난 드래그는 아이템 click으로 이어지지 않는다.
+        const container = e.currentTarget as { setPointerCapture?: (id: number) => void };
+        container.setPointerCapture?.(e.pointerId);
       }
 
       // 문턱을 넘은 뒤에는 누른 지점부터의 전체 이동량을 따른다 — 문턱만큼 뒤처지지 않게.

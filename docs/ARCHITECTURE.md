@@ -105,6 +105,7 @@ packages/
 │   ├── renderer.ts     — CanvasKitRenderer
 │   ├── hit-test.ts     — HitTest
 │   ├── selection.ts    — SelectionManager, SelectionUtils
+│   ├── transform.ts    — viewToScene/sceneToView, fitTransform (뷰 transform 좌표 계산)
 │   ├── commands.ts     — Command pattern, CommandHistory
 │   ├── clipboard.ts    — Clipboard, Copy/Cut/Paste/Duplicate commands
 │   └── index.ts        — public exports

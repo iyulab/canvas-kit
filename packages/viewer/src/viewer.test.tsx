@@ -348,6 +348,23 @@ describe('Viewer', () => {
       expect(onTap).not.toHaveBeenCalled();
     });
 
+    // 누르는 순간 캡처하면 브라우저가 click 대상을 컨테이너로 바꿔 오버레이 아이템의 click이 죽는다 —
+    // 캡처는 팬이 실제로 시작될 때만.
+    it('captures the pointer only once a pan starts, so presses on overlay items still click', () => {
+      render(<Viewer width={200} height={200} />);
+      const container = screen.getByTestId('viewer-container');
+      const setPointerCapture = vi.fn();
+      (container as unknown as { setPointerCapture: typeof setPointerCapture }).setPointerCapture = setPointerCapture;
+
+      fireEvent.pointerDown(container, { clientX: 100, clientY: 100, pointerId: 7 });
+      fireEvent.pointerMove(container, { clientX: 102, clientY: 100, pointerId: 7 });
+      expect(setPointerCapture).not.toHaveBeenCalled();
+
+      fireEvent.pointerMove(container, { clientX: 120, clientY: 100, pointerId: 7 });
+      expect(setPointerCapture).toHaveBeenCalledTimes(1);
+      expect(setPointerCapture).toHaveBeenCalledWith(7);
+    });
+
     it('does not report a tap when the pointer is cancelled', () => {
       const onTap = vi.fn();
       render(<Viewer width={200} height={200} onTap={onTap} />);
