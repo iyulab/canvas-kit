@@ -16,6 +16,16 @@ const DEFAULT_MAX_SCALE = 10;
 const ZOOM_SENSITIVITY = 0.001;
 // 이 거리(CSS px) 안에서 눌렀다 떼면 탭, 넘으면 팬.
 const DEFAULT_TAP_THRESHOLD = 4;
+// Keyboard: an arrow press pans this far (CSS px), Shift multiplies it; +/- zoom by this factor.
+const KEY_PAN_STEP = 40;
+const KEY_PAN_FAST = 4;
+const KEY_ZOOM_STEP = 1.25;
+const KEY_PAN: Record<string, [number, number]> = {
+  ArrowLeft: [1, 0],
+  ArrowRight: [-1, 0],
+  ArrowUp: [0, 1],
+  ArrowDown: [0, -1],
+};
 // 오버레이 아이템 DOM 표식 — 그 위에서 시작한 포인터는 탭으로 보고하지 않는다(아이템 몫).
 const OVERLAY_ATTRIBUTE = 'data-ck-overlay';
 
@@ -105,6 +115,11 @@ export interface ViewerProps {
    */
   className?: string;
   style?: React.CSSProperties;
+  /**
+   * Accessible name of the viewer. It is focusable: the arrow keys pan (Shift for a larger step) and
+   * `+`/`-` zoom around the middle, the keyboard counterparts of drag and wheel. Default "Canvas".
+   */
+  ariaLabel?: string;
 }
 
 // 서버 렌더링에서는 layout effect가 돌지 않고 React 18이 경고한다 — 브라우저에서만 layout effect.
@@ -177,6 +192,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
     tapThreshold = DEFAULT_TAP_THRESHOLD,
     className,
     style,
+    ariaLabel = 'Canvas',
   },
   ref
 ) {
@@ -272,6 +288,25 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
     [transform, minScale, maxScale, applyTransform]
   );
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      // Only keys pressed with the viewer itself focused — not ones typed into an overlay item.
+      if (e.target !== e.currentTarget || e.altKey || e.ctrlKey || e.metaKey) return;
+      const pan = KEY_PAN[e.key];
+      if (pan) {
+        const step = KEY_PAN_STEP * (e.shiftKey ? KEY_PAN_FAST : 1);
+        applyTransform({ x: transform.x + pan[0] * step, y: transform.y + pan[1] * step, scale: transform.scale });
+      } else if (e.key === '+' || e.key === '=' || e.key === '-') {
+        const factor = e.key === '-' ? 1 / KEY_ZOOM_STEP : KEY_ZOOM_STEP;
+        applyTransform(zoomAt(transform, { x: width / 2, y: height / 2 }, factor, { minScale, maxScale }));
+      } else {
+        return;
+      }
+      e.preventDefault();
+    },
+    [transform, width, height, minScale, maxScale, applyTransform]
+  );
+
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       const target = e.target as Element | null;
@@ -347,6 +382,10 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
     <div
       ref={containerRef}
       data-testid="viewer-container"
+      tabIndex={0}
+      role="region"
+      aria-label={ariaLabel}
+      aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown + -"
       className={className}
       style={{
         position: 'relative',
@@ -358,6 +397,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
         ...style,
       }}
       onWheel={handleWheel}
+      onKeyDown={handleKeyDown}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}

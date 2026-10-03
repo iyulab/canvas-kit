@@ -73,6 +73,8 @@ import { Viewer } from '@canvas-kit/viewer';
   fitted with `fitTransform`). The canvas is rendered at `devicePixelRatio` for sharp output.
 - **Pan/zoom** — wheel zooms around the pointer, drag pans. Pass `transform` +
   `onTransformChange` to control it; `minScale`/`maxScale` bound the zoom.
+- **Keyboard** — the viewer is focusable (`ariaLabel` names it): arrow keys pan (Shift for a
+  larger step) and `+`/`-` zoom around the middle. Keys typed inside an overlay item are left alone.
 - **Taps** — `onTap` fires for a press and release that stays within `tapThreshold` (default
   4px), with the point in scene coordinates. Presses on overlay items are left to the items.
 - **Fit to a region** — `ref.current.fitToRect(rect, { padding, maxScale })` through a

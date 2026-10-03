@@ -577,6 +577,68 @@ describe('Viewer', () => {
     });
   });
 
+  describe('keyboard', () => {
+    it('is focusable and named, and announces its keys', () => {
+      render(<Viewer width={200} height={100} ariaLabel="Floor plan" />);
+      const container = screen.getByTestId('viewer-container');
+      expect(container).toHaveAttribute('tabindex', '0');
+      expect(container).toHaveAttribute('role', 'region');
+      expect(container).toHaveAttribute('aria-label', 'Floor plan');
+      expect(container.getAttribute('aria-keyshortcuts')).toContain('ArrowLeft');
+    });
+
+    it('pans with the arrow keys — the view moves toward the arrow — and further with Shift', () => {
+      const onTransformChange = vi.fn();
+      render(<Viewer width={200} height={100} onTransformChange={onTransformChange} />);
+      const container = screen.getByTestId('viewer-container');
+
+      fireEvent.keyDown(container, { key: 'ArrowRight' });
+      expect(onTransformChange).toHaveBeenLastCalledWith({ x: -40, y: 0, scale: 1 });
+      fireEvent.keyDown(container, { key: 'ArrowDown', shiftKey: true });
+      expect(onTransformChange).toHaveBeenLastCalledWith({ x: -40, y: -160, scale: 1 });
+      fireEvent.keyDown(container, { key: 'ArrowLeft' });
+      fireEvent.keyDown(container, { key: 'ArrowUp' });
+      expect(onTransformChange).toHaveBeenLastCalledWith({ x: 0, y: -120, scale: 1 });
+    });
+
+    it('zooms around the middle with + and -, within minScale/maxScale', () => {
+      const onTransformChange = vi.fn();
+      render(<Viewer width={200} height={100} maxScale={1.5} onTransformChange={onTransformChange} />);
+      const container = screen.getByTestId('viewer-container');
+
+      fireEvent.keyDown(container, { key: '+' });
+      expect(onTransformChange.mock.lastCall![0].scale).toBeCloseTo(1.25);
+      // the middle (100, 50) stays put
+      const t = onTransformChange.mock.lastCall![0];
+      expect(100 * t.scale + t.x).toBeCloseTo(100 * 1.25 - 25);
+      fireEvent.keyDown(container, { key: '=' });
+      expect(onTransformChange.mock.lastCall![0].scale).toBe(1.5);
+      fireEvent.keyDown(container, { key: '-' });
+      expect(onTransformChange.mock.lastCall![0].scale).toBeCloseTo(1.2);
+    });
+
+    it('keeps the page from scrolling for a key it handles, and leaves other keys alone', () => {
+      render(<Viewer width={200} height={100} />);
+      const container = screen.getByTestId('viewer-container');
+      expect(fireEvent.keyDown(container, { key: 'ArrowDown' })).toBe(false); // default prevented
+      expect(fireEvent.keyDown(container, { key: 'a' })).toBe(true);
+    });
+
+    it('ignores keys typed inside an overlay item', () => {
+      const onTransformChange = vi.fn();
+      render(
+        <Viewer
+          width={200}
+          height={100}
+          onTransformChange={onTransformChange}
+          overlays={[{ id: 'w', x: 0, y: 0, width: 50, height: 20, content: <input aria-label="field" /> }]}
+        />
+      );
+      fireEvent.keyDown(screen.getByLabelText('field'), { key: 'ArrowRight' });
+      expect(onTransformChange).not.toHaveBeenCalled();
+    });
+  });
+
   describe('chrome', () => {
     it('does not put a border on the canvas itself (it would grow the canvas past its box)', () => {
       render(<Viewer width={100} height={100} />);
