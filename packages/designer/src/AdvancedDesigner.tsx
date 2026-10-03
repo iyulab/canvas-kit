@@ -4,6 +4,7 @@ import { Scene, CommandHistory, AddCommand } from '@canvas-kit/core';
 import type { DrawingObject, CommandHistoryEvent } from '@canvas-kit/core';
 import { KonvaDesigner } from './KonvaDesigner';
 import { FreeDrawingCanvas } from './FreeDrawingCanvas';
+import type Konva from 'konva';
 import { EditableText } from './EditableText';
 
 export type DesignerTool = 'select' | 'draw' | 'text' | 'rect' | 'circle';
@@ -74,6 +75,13 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
     const [previewShape, setPreviewShape] = useState<PreviewShape | null>(null);
 
     const stageRef = useRef<any>(null);
+    // The mounted Stage, as state so the drawing layer re-renders with it — reading `stageRef.current`
+    // during render would hand it whatever was there before this render committed.
+    const [stage, setStage] = useState<Konva.Stage | null>(null);
+    const attachStage = useCallback((node: Konva.Stage | null) => {
+        stageRef.current = node;
+        setStage(node);
+    }, []);
 
     // CommandHistory 이벤트 구독 (폴링 대체)
     useEffect(() => {
@@ -424,17 +432,15 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
                     <Stage
                         width={width}
                         height={height}
-                        ref={stageRef}
+                        ref={attachStage}
                         onClick={handleStageClick}
                     >
                         {renderSceneBackground()}
                         <Layer>
                             {currentTool === 'draw' && (
                                 <FreeDrawingCanvas
-                                    width={width}
-                                    height={height}
                                     tool={drawingTool}
-                                    stage={stageRef.current || undefined}
+                                    stage={stage ?? undefined}
                                 />
                             )}
                             {currentTool === 'text' && textObjects.map(text => (
@@ -461,7 +467,7 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
                     <Stage
                         width={width}
                         height={height}
-                        ref={stageRef}
+                        ref={attachStage}
                         style={{ cursor: 'crosshair' }}
                         onMouseDown={handleShapeMouseDown}
                         onMouseMove={handleShapeMouseMove}

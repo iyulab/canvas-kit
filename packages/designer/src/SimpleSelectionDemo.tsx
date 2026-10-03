@@ -1,18 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Stage, Layer, Rect, Circle, Transformer } from 'react-konva';
 import { Scene, SelectionUtils } from '@canvas-kit/core';
-import type { DrawingObject, SelectionMode } from '@canvas-kit/core';
+import type { DrawingObject } from '@canvas-kit/core';
 import Konva from 'konva';
-
-// Canvas 선택을 위한 특별한 타입을 로컬에서 정의
-interface CanvasSelection {
-    type: 'canvas';
-    id: 'canvas';
-    x: 0;
-    y: 0;
-}
-
-type SelectableElement = DrawingObject | CanvasSelection;
 
 interface SimpleSelectionDemoProps {
     width: number;
@@ -42,14 +32,6 @@ export const SimpleSelectionDemo: React.FC<SimpleSelectionDemoProps> = ({
     }>({ x: 0, y: 0, width: 0, height: 0, visible: false });
 
     const objects = scene.getObjects();
-
-    // Canvas 선택 객체 생성
-    const canvasSelection: CanvasSelection = {
-        type: 'canvas',
-        id: 'canvas',
-        x: 0,
-        y: 0
-    };
 
     // 객체 ID 생성
     const getObjectId = (obj: DrawingObject): string => {

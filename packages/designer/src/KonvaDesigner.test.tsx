@@ -29,7 +29,7 @@ vi.mock('react-konva', () => ({
     Image: (props: any) => (
         <div data-testid="konva-image" data-props={JSON.stringify({ ...props, image: undefined })} />
     ),
-    Transformer: (props: any) => (
+    Transformer: () => (
         <div data-testid="konva-transformer" />
     ),
 }));

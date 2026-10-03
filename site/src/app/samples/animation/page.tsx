@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Scene } from '@canvas-kit/core';
@@ -8,6 +8,54 @@ import { Scene } from '@canvas-kit/core';
 const AdvancedDesigner = dynamic(() => import('@canvas-kit/designer').then(mod => mod.AdvancedDesigner), {
     ssr: false,
 });
+
+/** The scene at `currentTime` (ms): each sample object follows its own motion. */
+function frameAt(scene: Scene, currentTime: number): Scene {
+    const objects = scene.getObjects();
+    const newScene = new Scene();
+
+    objects.forEach((obj, index) => {
+        let newObj = { ...obj };
+
+        // Different animation for each object
+        switch (index) {
+            case 0: // Bouncing ball
+                const bounceY = 100 + Math.abs(Math.sin(currentTime * 0.005)) * 200;
+                newObj = { ...newObj, y: bounceY };
+                break;
+
+            case 1: // Moving rectangle
+                const moveX = 50 + (Math.sin(currentTime * 0.003) + 1) * 200;
+                newObj = { ...newObj, x: moveX };
+                break;
+
+            case 2: // Scaling circle
+                if (obj.type === 'circle' && 'radius' in obj) {
+                    const scale = 20 + Math.sin(currentTime * 0.004) * 15;
+                    newObj = { ...newObj, radius: scale } as typeof obj;
+                }
+                break;
+
+            case 3: // Color changing and moving rect
+                const colorPhase = (currentTime * 0.002) % (2 * Math.PI);
+                const red = Math.floor(128 + Math.sin(colorPhase) * 127);
+                const green = Math.floor(128 + Math.sin(colorPhase + 2) * 127);
+                const blue = Math.floor(128 + Math.sin(colorPhase + 4) * 127);
+                const spiralX = 400 + Math.cos(currentTime * 0.002) * 100;
+                const spiralY = 100 + Math.sin(currentTime * 0.002) * 100;
+                newObj = {
+                    ...newObj,
+                    x: spiralX,
+                    y: spiralY,
+                    fill: `rgb(${red}, ${green}, ${blue})`
+                };
+                break;
+        }
+
+        newScene.add(newObj);
+    });
+    return newScene;
+}
 
 export default function AnimationPage() {
     const [scene, setScene] = useState<Scene>(new Scene());
@@ -68,69 +116,27 @@ export default function AnimationPage() {
         setScene(newScene);
     }, []);
 
-    const animate = useCallback((currentTime: number) => {
+    // The loop runs while playing; stopping (or leaving the page) cancels the pending frame.
+    useEffect(() => {
         if (!isPlaying) return;
-
-        const objects = scene.getObjects();
-        const newScene = new Scene();
-
-        objects.forEach((obj, index) => {
-            let newObj = { ...obj };
-
-            // Different animation for each object
-            switch (index) {
-                case 0: // Bouncing ball
-                    const bounceY = 100 + Math.abs(Math.sin(currentTime * 0.005)) * 200;
-                    newObj = { ...newObj, y: bounceY };
-                    break;
-
-                case 1: // Moving rectangle
-                    const moveX = 50 + (Math.sin(currentTime * 0.003) + 1) * 200;
-                    newObj = { ...newObj, x: moveX };
-                    break;
-
-                case 2: // Scaling circle
-                    if (obj.type === 'circle' && 'radius' in obj) {
-                        const scale = 20 + Math.sin(currentTime * 0.004) * 15;
-                        newObj = { ...newObj, radius: scale } as typeof obj;
-                    }
-                    break;
-
-                case 3: // Color changing and moving rect
-                    const colorPhase = (currentTime * 0.002) % (2 * Math.PI);
-                    const red = Math.floor(128 + Math.sin(colorPhase) * 127);
-                    const green = Math.floor(128 + Math.sin(colorPhase + 2) * 127);
-                    const blue = Math.floor(128 + Math.sin(colorPhase + 4) * 127);
-                    const spiralX = 400 + Math.cos(currentTime * 0.002) * 100;
-                    const spiralY = 100 + Math.sin(currentTime * 0.002) * 100;
-                    newObj = {
-                        ...newObj,
-                        x: spiralX,
-                        y: spiralY,
-                        fill: `rgb(${red}, ${green}, ${blue})`
-                    };
-                    break;
-            }
-
-            newScene.add(newObj);
-        });
-
-        setScene(newScene);
-        lastTimeRef.current = currentTime;
-        animationRef.current = requestAnimationFrame(animate);
-    }, [isPlaying, scene]);
+        const step = (currentTime: number) => {
+            setScene(prev => frameAt(prev, currentTime));
+            lastTimeRef.current = currentTime;
+            animationRef.current = requestAnimationFrame(step);
+        };
+        animationRef.current = requestAnimationFrame(step);
+        return () => {
+            if (animationRef.current) cancelAnimationFrame(animationRef.current);
+        };
+    }, [isPlaying]);
 
     const startAnimation = () => {
-        setIsPlaying(true);
         lastTimeRef.current = performance.now();
-        animationRef.current = requestAnimationFrame(animate);
+        setIsPlaying(true);
     };
 
     const stopAnimation = () => {
         setIsPlaying(false);
-        if (animationRef.current) {
-            cancelAnimationFrame(animationRef.current);
-        }
     };
 
     const resetAnimation = () => {
@@ -182,15 +188,6 @@ export default function AnimationPage() {
 
         setScene(newScene);
     };
-
-    // Cleanup animation on unmount
-    useEffect(() => {
-        return () => {
-            if (animationRef.current) {
-                cancelAnimationFrame(animationRef.current);
-            }
-        };
-    }, []);
 
     const addRandomObject = () => {
         const newScene = new Scene();

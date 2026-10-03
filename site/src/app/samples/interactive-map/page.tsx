@@ -26,9 +26,11 @@ interface Building {
 
 export default function InteractiveBuildingMapPage() {
     const [scene, setScene] = useState<Scene>(new Scene());
-    const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+    // The id, not the room object: the room is looked up in the current building, so a change to it
+    // (occupancy) shows in the details panel without a second copy to keep in step.
+    const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
     const [hoveredRoom, setHoveredRoom] = useState<string | null>(null);
-    const [building] = useState<Building>({
+    const [building, setBuilding] = useState<Building>({
         rooms: [
             { id: 'room1', name: 'Conference Room A', type: 'meeting', occupied: false, capacity: 12, description: 'Large conference room with projector' },
             { id: 'room2', name: 'Office 101', type: 'office', occupied: true, capacity: 4, description: 'Development team workspace' },
@@ -42,6 +44,8 @@ export default function InteractiveBuildingMapPage() {
         corridors: [],
         exits: []
     });
+
+    const selectedRoom = building.rooms.find(r => r.id === selectedRoomId) ?? null;
 
     const roomColors = useMemo(() => ({
         office: { free: '#e3f2fd', occupied: '#ffcdd2', stroke: '#1976d2' },
@@ -85,7 +89,7 @@ export default function InteractiveBuildingMapPage() {
 
             const colors = roomColors[room.type];
             const isHovered = hoveredRoom === room.id;
-            const isSelected = selectedRoom?.id === room.id;
+            const isSelected = selectedRoomId === room.id;
 
             newScene.add({
                 type: 'rect',
@@ -179,23 +183,18 @@ export default function InteractiveBuildingMapPage() {
         });
 
         setScene(newScene);
-    }, [building, hoveredRoom, selectedRoom]);
+    }, [building, hoveredRoom, selectedRoomId, roomColors]);
 
     const handleRoomClick = useCallback((roomId: string) => {
-        const room = building.rooms.find(r => r.id === roomId);
-        setSelectedRoom(room || null);
+        setSelectedRoomId(building.rooms.some(r => r.id === roomId) ? roomId : null);
     }, [building]);
 
     const toggleRoomOccupancy = (roomId: string) => {
-        const roomIndex = building.rooms.findIndex(r => r.id === roomId);
-        if (roomIndex !== -1) {
-            building.rooms[roomIndex].occupied = !building.rooms[roomIndex].occupied;
-            // Force re-render by updating the scene
-            setScene(new Scene());
-            setTimeout(() => {
-                // This will trigger the useEffect to rebuild the scene
-            }, 0);
-        }
+        // A new building object, so the effect that draws the scene sees the change and redraws.
+        setBuilding(prev => ({
+            ...prev,
+            rooms: prev.rooms.map(r => (r.id === roomId ? { ...r, occupied: !r.occupied } : r)),
+        }));
     };
 
     const getOccupancyStats = () => {
@@ -411,8 +410,8 @@ export default function InteractiveBuildingMapPage() {
                             {building.rooms.map(room => (
                                 <div
                                     key={room.id}
-                                    onClick={() => setSelectedRoom(room)}
-                                    className={`p-3 rounded border cursor-pointer transition-colors ${selectedRoom?.id === room.id
+                                    onClick={() => setSelectedRoomId(room.id)}
+                                    className={`p-3 rounded border cursor-pointer transition-colors ${selectedRoomId === room.id
                                         ? 'bg-yellow-50 border-yellow-300'
                                         : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                                         }`}

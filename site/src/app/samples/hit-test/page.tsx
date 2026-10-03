@@ -73,7 +73,7 @@ export default function HitTestSample() {
         }));
 
         setHitResults({ hitObject, allObjects });
-    }, [testPoint]); // scene 제거
+    }, [scene, testPoint]); // `scene` never changes (useState without a setter) — listed to keep the deps honest
 
     // Handle canvas click
     const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {

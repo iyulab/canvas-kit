@@ -204,8 +204,12 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
   );
   const transform = isControlled ? controlledTransform! : internalTransform;
   const { width, height } = useViewportSize(containerRef, widthProp, heightProp);
+  // The latest callback, kept current after each commit — written in an effect, never during
+  // render, so a render React throws away cannot leave a callback behind.
   const onViewportResizeRef = useRef(onViewportResize);
-  onViewportResizeRef.current = onViewportResize;
+  useLayoutEffect(() => {
+    onViewportResizeRef.current = onViewportResize;
+  });
   useEffect(() => {
     if (width > 0 && height > 0) onViewportResizeRef.current?.({ width, height });
   }, [width, height]);

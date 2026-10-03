@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Layer, Line } from 'react-konva';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Line } from 'react-konva';
 import Konva from 'konva';
 
 export interface DrawingTool {
@@ -9,16 +9,12 @@ export interface DrawingTool {
 }
 
 interface FreeDrawingCanvasProps {
-    width: number;
-    height: number;
     tool: DrawingTool;
     onPathsChange?: (paths: any[]) => void;
     stage?: Konva.Stage; // Stage 참조를 props로 받음
 }
 
 export const FreeDrawingCanvas: React.FC<FreeDrawingCanvasProps> = ({
-    width,
-    height,
     tool,
     onPathsChange,
     stage

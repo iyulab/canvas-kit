@@ -63,7 +63,7 @@ export class Scene {
    */
   copy(): Scene {
     const newScene = new Scene();
-    newScene.objects = [...this.objects.map(obj => ({ ...obj }))];
+    newScene.objects = this.objects.map(obj => ({ ...obj }));
     newScene.idCounter = this.idCounter;
     return newScene;
   }

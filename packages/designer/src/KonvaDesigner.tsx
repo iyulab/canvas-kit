@@ -137,8 +137,12 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
     const transformerRef = useRef<Konva.Transformer>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const { width, height } = useViewportSize(containerRef, widthProp, heightProp);
+    // Latest callback/transform, kept current after each commit — written in an effect, never during
+    // render, so a render React throws away cannot leave a stale value behind.
     const onViewportResizeRef = useRef(onViewportResize);
-    onViewportResizeRef.current = onViewportResize;
+    useLayoutEffect(() => {
+        onViewportResizeRef.current = onViewportResize;
+    });
     useEffect(() => {
         if (width > 0 && height > 0) onViewportResizeRef.current?.({ width, height });
     }, [width, height]);
@@ -183,7 +187,9 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
     // computed, never left to Konva's own stage dragging, so a controlled designer stays where its
     // owner puts it.
     const transformRef = useRef(transform);
-    transformRef.current = transform;
+    useLayoutEffect(() => {
+        transformRef.current = transform;
+    });
     const panCleanupRef = useRef<(() => void) | null>(null);
     useEffect(() => () => panCleanupRef.current?.(), []);
     const handleStagePointerDown = useCallback((e: Konva.KonvaEventObject<PointerEvent>) => {

@@ -29,8 +29,7 @@
     "build": "tsup src/index.tsx --format cjs,esm --dts --external react --external react-dom --external konva --external react-konva --external @canvas-kit/core",
     "test": "vitest run",
     "test:watch": "vitest",
-    "type-check": "tsc --noEmit",
-    "lint": "echo 'ESLint configuration in progress'"
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@canvas-kit/core": "workspace:*"
