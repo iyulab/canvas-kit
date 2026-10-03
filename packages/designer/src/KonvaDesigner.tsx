@@ -1,8 +1,46 @@
-import React, { useRef, useEffect, useState, useCallback, useLayoutEffect, useReducer } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useLayoutEffect, useReducer, forwardRef, useImperativeHandle } from 'react';
 import { Stage, Layer, Rect, Circle, Line, Text, Image as KonvaImage, Transformer } from 'react-konva';
-import { DrawingObject, Scene, defaultImageLoader, CommandHistory, MoveCommand, ResizeCommand } from '@canvas-kit/core';
-import type { Image as ImageShape } from '@canvas-kit/core';
+import {
+    DrawingObject, Scene, defaultImageLoader, CommandHistory, MoveCommand, ResizeCommand,
+    IDENTITY_TRANSFORM, fitTransform, zoomAt,
+} from '@canvas-kit/core';
+import type { Image as ImageShape, Transform, Rect as SceneRect } from '@canvas-kit/core';
 import type Konva from 'konva';
+
+const DEFAULT_MIN_SCALE = 0.1;
+const DEFAULT_MAX_SCALE = 10;
+// wheel deltaY -> zoom factor. Negative deltaY (scroll up) zooms in.
+const ZOOM_SENSITIVITY = 0.001;
+// Movement (CSS px) below which a press on empty space is a click (deselect), not a pan.
+const PAN_THRESHOLD = 4;
+
+// Server rendering runs no layout effects and React warns about them — layout effect in the browser only.
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
+// An omitted width/height follows the container along that axis.
+function useViewportSize(
+    containerRef: React.RefObject<HTMLDivElement | null>,
+    width: number | undefined,
+    height: number | undefined
+): { width: number; height: number } {
+    const followsContainer = width === undefined || height === undefined;
+    const [measured, setMeasured] = useState({ width: 0, height: 0 });
+
+    useIsomorphicLayoutEffect(() => {
+        const element = containerRef.current;
+        if (!followsContainer || !element) return;
+        setMeasured({ width: element.clientWidth, height: element.clientHeight });
+        if (typeof ResizeObserver === 'undefined') return;
+        const observer = new ResizeObserver(entries => {
+            const box = entries[entries.length - 1]?.contentRect;
+            if (box) setMeasured({ width: box.width, height: box.height });
+        });
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, [containerRef, followsContainer]);
+
+    return { width: width ?? measured.width, height: height ?? measured.height };
+}
 
 // Image src loading is async, unlike every other Shape — a small subcomponent so the load-state
 // hook lives at its own top level (Rules of Hooks) instead of inside the renderObject callback.
@@ -26,10 +64,44 @@ const KonvaImageNode: React.FC<{
     );
 };
 
+export interface FitToRectOptions {
+    /** Space (CSS px) kept clear on every side of the rect. Default 0. */
+    padding?: number;
+    /** Upper bound on the fitted scale for this call, within the designer's own `minScale`/`maxScale` —
+     * e.g. `1` shrinks a large rect to fit but never magnifies a small one past its natural size. */
+    maxScale?: number;
+}
+
+export interface DesignerHandle {
+    /**
+     * Fits a scene rect into the current viewport (centered, `minScale`/`maxScale` respected) and
+     * reports the result through `onTransformChange` — in uncontrolled mode the designer also adopts
+     * it. Called while a container-sized designer is still unmeasured, the fit is held and applied
+     * once the viewport has a size.
+     */
+    fitToRect(rect: SceneRect, options?: FitToRectOptions): void;
+}
+
 export interface KonvaDesignerProps {
-    width: number;
-    height: number;
+    /**
+     * Viewport size in CSS px. Omit either to follow the container's size along that axis — the
+     * designer then fills its parent (`100%`) and tracks resizes, keeping the transform as-is.
+     */
+    width?: number;
+    height?: number;
     scene: Scene;
+    /**
+     * The view's pan/zoom. Given, the designer is controlled: it never changes this itself and only
+     * reports the next value through `onTransformChange`. Omitted, it owns the transform (starting
+     * at identity). Objects keep their scene coordinates either way — dragging and resizing report
+     * scene positions and sizes, not screen ones.
+     */
+    transform?: Transform;
+    /** Called whenever the transform changes — a pan, a wheel zoom, or `fitToRect`. */
+    onTransformChange?: (transform: Transform) => void;
+    /** Bounds of the wheel zoom (default 0.1–10). `fitToRect` stays within them too. */
+    minScale?: number;
+    maxScale?: number;
     onSceneChange?: (scene: Scene) => void;
     onSelectionChange?: (selection: DrawingObject[]) => void;
     enableMultiSelect?: boolean;
@@ -39,17 +111,109 @@ export interface KonvaDesignerProps {
     commandHistory?: CommandHistory;
 }
 
-export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
-    width,
-    height,
+/**
+ * Editing surface for a `Scene`: select, drag, and resize its objects, with undo/redo. Pan by
+ * dragging empty space, zoom with the wheel around the pointer; omit `width`/`height` to fill the
+ * container.
+ */
+export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(function KonvaDesigner({
+    width: widthProp,
+    height: heightProp,
     scene,
+    transform: controlledTransform,
+    onTransformChange,
+    minScale = DEFAULT_MIN_SCALE,
+    maxScale = DEFAULT_MAX_SCALE,
     onSceneChange,
     onSelectionChange,
     enableMultiSelect = false,
     commandHistory,
-}) => {
+}, ref) {
     const stageRef = useRef<Konva.Stage>(null);
     const transformerRef = useRef<Konva.Transformer>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const { width, height } = useViewportSize(containerRef, widthProp, heightProp);
+
+    // View transform — controlled when `transform` is given, otherwise owned here. Konva applies it
+    // at the Stage, so objects (and the drag/resize positions Konva reports for them) stay in scene
+    // coordinates.
+    const isControlled = controlledTransform !== undefined;
+    const [internalTransform, setInternalTransform] = useState<Transform>(controlledTransform ?? IDENTITY_TRANSFORM);
+    const transform = isControlled ? controlledTransform! : internalTransform;
+    const applyTransform = useCallback((next: Transform) => {
+        if (!isControlled) setInternalTransform(next);
+        onTransformChange?.(next);
+    }, [isControlled, onTransformChange]);
+
+    // A fit asked for before the container has been measured has nothing to fit into yet; it waits
+    // here and is applied once, as soon as the viewport has a size.
+    const pendingFitRef = useRef<{ rect: SceneRect; options: FitToRectOptions } | null>(null);
+    const fit = useCallback((rect: SceneRect, options: FitToRectOptions) => {
+        const fitMaxScale = Math.max(minScale, Math.min(options.maxScale ?? maxScale, maxScale));
+        applyTransform(fitTransform({ width, height }, rect, { padding: options.padding, minScale, maxScale: fitMaxScale }));
+    }, [width, height, minScale, maxScale, applyTransform]);
+    useIsomorphicLayoutEffect(() => {
+        const pending = pendingFitRef.current;
+        if (!pending || width <= 0 || height <= 0) return;
+        pendingFitRef.current = null;
+        fit(pending.rect, pending.options);
+    }, [width, height, fit]);
+    useImperativeHandle(ref, () => ({
+        fitToRect(rect, options = {}) {
+            if (width <= 0 || height <= 0) {
+                pendingFitRef.current = { rect, options };
+                return;
+            }
+            pendingFitRef.current = null;
+            fit(rect, options);
+        },
+    }), [width, height, fit]);
+
+    // Pan: a press on empty space (not on a shape — that drag moves the shape) that moves past the
+    // threshold. Tracked on the window so it keeps following outside the stage; the transform is
+    // computed, never left to Konva's own stage dragging, so a controlled designer stays where its
+    // owner puts it.
+    const transformRef = useRef(transform);
+    transformRef.current = transform;
+    const panCleanupRef = useRef<(() => void) | null>(null);
+    useEffect(() => () => panCleanupRef.current?.(), []);
+    const handleStagePointerDown = useCallback((e: Konva.KonvaEventObject<PointerEvent>) => {
+        const stage = e.target.getStage();
+        if (!stage || e.target !== stage || e.evt.button !== 0) return;
+        panCleanupRef.current?.();
+        const { pointerId, clientX: startX, clientY: startY } = e.evt;
+        const start = transformRef.current;
+        let panning = false;
+        const onMove = (ev: PointerEvent) => {
+            if (ev.pointerId !== pointerId) return;
+            const dx = ev.clientX - startX;
+            const dy = ev.clientY - startY;
+            if (!panning && Math.hypot(dx, dy) <= PAN_THRESHOLD) return;
+            panning = true;
+            applyTransform({ x: start.x + dx, y: start.y + dy, scale: start.scale });
+        };
+        const stop = (ev: PointerEvent) => {
+            if (ev.pointerId === pointerId) panCleanupRef.current?.();
+        };
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', stop);
+        window.addEventListener('pointercancel', stop);
+        panCleanupRef.current = () => {
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', stop);
+            window.removeEventListener('pointercancel', stop);
+            panCleanupRef.current = null;
+        };
+    }, [applyTransform]);
+
+    const handleStageWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
+        const stage = e.target.getStage();
+        const pointer = stage?.getPointerPosition();
+        if (!pointer) return;
+        e.evt.preventDefault(); // the wheel zooms the design, it does not scroll the page
+        const factor = Math.exp(-e.evt.deltaY * ZOOM_SENSITIVITY);
+        applyTransform(zoomAt(transformRef.current, pointer, factor, { minScale, maxScale }));
+    }, [applyTransform, minScale, maxScale]);
     // Lazy-initialized so an omitted `commandHistory` allocates exactly one default instance,
     // not one per render (a plain default-parameter value would re-run every render).
     const [history] = useState(() => commandHistory ?? new CommandHistory());
@@ -255,12 +419,21 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
     }, [selectedIds, handleObjectDragEnd, handleObjectTransformEnd]);
 
     return (
-        <div style={{ position: 'relative' }}>
+        <div
+            ref={containerRef}
+            style={{ position: 'relative', width: widthProp ?? '100%', height: heightProp ?? '100%' }}
+        >
             <Stage
                 width={width}
                 height={height}
+                x={transform.x}
+                y={transform.y}
+                scaleX={transform.scale}
+                scaleY={transform.scale}
                 ref={stageRef}
                 onMouseDown={handleStageMouseDown}
+                onPointerDown={handleStagePointerDown}
+                onWheel={handleStageWheel}
             >
                 <Layer>
                     {scene.getObjects().map(renderObject)}
@@ -278,6 +451,6 @@ export const KonvaDesigner: React.FC<KonvaDesignerProps> = ({
             </Stage>
         </div>
     );
-};
+});
 
 export default KonvaDesigner;

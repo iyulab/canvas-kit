@@ -59,3 +59,24 @@ export function fitTransform(viewport: Size, rect: Rect, options: FitTransformOp
     scale,
   };
 }
+
+export interface ZoomBounds {
+  minScale?: number;
+  maxScale?: number;
+}
+
+/**
+ * Scales a transform by `factor` around a view point — the scene point under `point` stays under
+ * it — with the resulting scale clamped to `[minScale, maxScale]`. What a wheel or pinch zoom
+ * centered on the pointer computes.
+ */
+export function zoomAt(transform: Transform, point: Point, factor: number, bounds: ZoomBounds = {}): Transform {
+  const { minScale = 0, maxScale = Infinity } = bounds;
+  const scale = Math.min(maxScale, Math.max(minScale, transform.scale * factor));
+  const anchor = viewToScene(transform, point);
+  return {
+    x: point.x - anchor.x * scale,
+    y: point.y - anchor.y * scale,
+    scale,
+  };
+}

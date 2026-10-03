@@ -49,6 +49,12 @@ function App() {
 }
 ```
 
+- **Viewport** — the same contract as the viewer below: omit `width`/`height` to fill the parent,
+  drag empty space to pan, wheel to zoom around the pointer (`minScale`/`maxScale`), pass
+  `transform` + `onTransformChange` to control it, and `ref.current.fitToRect(rect, { padding,
+  maxScale })` through a `DesignerHandle` ref. Objects keep scene coordinates: drags and resizes
+  report scene positions and sizes at any zoom.
+
 ### Viewer (Display Only)
 
 ```bash

@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { CanvasKitRenderer, Scene, IDENTITY_TRANSFORM, viewToScene, fitTransform } from '@canvas-kit/core';
+import { CanvasKitRenderer, Scene, IDENTITY_TRANSFORM, viewToScene, fitTransform, zoomAt } from '@canvas-kit/core';
 import type { Transform, OverlayItem, Point, Rect } from '@canvas-kit/core';
 
 const DEFAULT_MIN_SCALE = 0.1;
@@ -18,10 +18,6 @@ const ZOOM_SENSITIVITY = 0.001;
 const DEFAULT_TAP_THRESHOLD = 4;
 // 오버레이 아이템 DOM 표식 — 그 위에서 시작한 포인터는 탭으로 보고하지 않는다(아이템 몫).
 const OVERLAY_ATTRIBUTE = 'data-ck-overlay';
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
 
 // OverlayItem은 위치/크기만 core에서 정의한다 — 실제로 무엇을 그릴지(content)는
 // UI 프레임워크에 의존하므로 여기(viewer)에서 React 노드로 확장한다.
@@ -257,17 +253,9 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
       const px = e.clientX - (rect?.left ?? 0);
       const py = e.clientY - (rect?.top ?? 0);
 
+      // 포인터 아래의 씬 좌표가 줌 전후로 화면상 같은 위치에 남는다
       const factor = Math.exp(-e.deltaY * ZOOM_SENSITIVITY);
-      const newScale = clamp(transform.scale * factor, minScale, maxScale);
-
-      // 포인터 아래의 씬 좌표가 줌 전후로 화면상 같은 위치에 남도록 x/y를 함께 보정
-      const scenePoint = viewToScene(transform, { x: px, y: py });
-
-      applyTransform({
-        x: px - scenePoint.x * newScale,
-        y: py - scenePoint.y * newScale,
-        scale: newScale,
-      });
+      applyTransform(zoomAt(transform, { x: px, y: py }, factor, { minScale, maxScale }));
     },
     [transform, minScale, maxScale, applyTransform]
   );

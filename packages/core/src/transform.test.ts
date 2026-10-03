@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { viewToScene, sceneToView, fitTransform } from './transform';
+import { viewToScene, sceneToView, fitTransform, zoomAt } from './transform';
 
 describe('viewToScene / sceneToView', () => {
   const t = { x: 40, y: -20, scale: 2 };
@@ -68,5 +68,27 @@ describe('fitTransform', () => {
   it('falls back to scale 1 (clamped) when padding leaves no room', () => {
     const t = fitTransform(viewport, { x: 0, y: 0, width: 10, height: 10 }, { padding: 60 });
     expect(t.scale).toBe(1);
+  });
+});
+
+describe('zoomAt', () => {
+  const t = { x: 10, y: 20, scale: 2 };
+
+  it('scales by the factor and keeps the scene point under the view point in place', () => {
+    const anchor = { x: 50, y: 60 };
+    const before = viewToScene(t, anchor);
+    const z = zoomAt(t, anchor, 1.5);
+    expect(z.scale).toBe(3);
+    expect(sceneToView(z, before).x).toBeCloseTo(anchor.x);
+    expect(sceneToView(z, before).y).toBeCloseTo(anchor.y);
+  });
+
+  it('clamps the scale to [minScale, maxScale], still anchored at the point', () => {
+    const anchor = { x: 50, y: 60 };
+    const before = viewToScene(t, anchor);
+    const z = zoomAt(t, anchor, 100, { maxScale: 4 });
+    expect(z.scale).toBe(4);
+    expect(sceneToView(z, before).x).toBeCloseTo(anchor.x);
+    expect(zoomAt(t, anchor, 0.001, { minScale: 0.5 }).scale).toBe(0.5);
   });
 });

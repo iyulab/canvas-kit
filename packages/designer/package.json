@@ -26,15 +26,14 @@
   ],
   "license": "MIT",
   "scripts": {
-    "build": "tsup src/index.tsx --format cjs,esm --dts --external react --external react-dom --external konva --external react-konva --external @canvas-kit/core --external @canvas-kit/viewer",
+    "build": "tsup src/index.tsx --format cjs,esm --dts --external react --external react-dom --external konva --external react-konva --external @canvas-kit/core",
     "test": "vitest run",
     "test:watch": "vitest",
     "type-check": "tsc --noEmit",
     "lint": "echo 'ESLint configuration in progress'"
   },
   "dependencies": {
-    "@canvas-kit/core": "workspace:*",
-    "@canvas-kit/viewer": "workspace:*"
+    "@canvas-kit/core": "workspace:*"
   },
   "peerDependencies": {
     "konva": "^10.0.0",
