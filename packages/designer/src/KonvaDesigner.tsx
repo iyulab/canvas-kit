@@ -15,6 +15,19 @@ const DEFAULT_MAX_SCALE = 10;
 const ZOOM_SENSITIVITY = 0.001;
 // Movement (CSS px) below which a press is a click, not a pan or a selection drag.
 const DRAG_THRESHOLD = 4;
+// Keyboard, as in the viewer: an arrow press with nothing selected pans this far (CSS px), Shift
+// multiplies it; +/- zoom by this factor around the middle. With a selection, an arrow moves it
+// one scene unit, Shift ten.
+const KEY_PAN_STEP = 40;
+const KEY_PAN_FAST = 4;
+const KEY_ZOOM_STEP = 1.25;
+const KEY_NUDGE_FAST = 10;
+const KEY_DIRECTION: Record<string, [number, number]> = {
+    ArrowLeft: [-1, 0],
+    ArrowRight: [1, 0],
+    ArrowUp: [0, -1],
+    ArrowDown: [0, 1],
+};
 const MARQUEE_STROKE = '#0080ff';
 const MARQUEE_FILL = 'rgba(0, 128, 255, 0.08)';
 
@@ -116,6 +129,11 @@ export interface KonvaDesignerProps {
     maxScale?: number;
     onSceneChange?: (scene: Scene) => void;
     onSelectionChange?: (selection: DrawingObject[]) => void;
+    /** Accessible name of the designer — it is focusable, and operable from the keyboard: arrow keys
+     * move the selection (Shift for ten units) or, with nothing selected, pan; `+`/`-` zoom; Tab and
+     * Shift+Tab select the next or previous shape; Escape clears the selection; Space + drag pans.
+     * Default "Designer". */
+    ariaLabel?: string;
     /** Shares an undo/redo stack with a caller that already owns one (e.g. `AdvancedDesigner`,
      * whose toolbar-driven adds should undo/redo together with drags/resizes done here). Standalone
      * usage gets its own stack for free when omitted. */
@@ -140,6 +158,7 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
     maxScale = DEFAULT_MAX_SCALE,
     onSceneChange,
     onSelectionChange,
+    ariaLabel = 'Designer',
     commandHistory,
 }, ref) {
     const stageRef = useRef<Konva.Stage>(null);
@@ -190,6 +209,10 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
             fit(rect, options);
         },
     }), [width, height, fit]);
+
+    // Lazy-initialized so an omitted `commandHistory` allocates exactly one default instance,
+    // not one per render (a plain default-parameter value would re-run every render).
+    const [history] = useState(() => commandHistory ?? new CommandHistory());
 
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const selectedIdsRef = useRef(selectedIds);
@@ -270,13 +293,49 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
         };
     }, [applyTransform, scene]);
 
-    // Space switches the pointer to panning while it is held — tracked while the designer has focus.
+    // Keys pressed while the designer has focus. Space switches the pointer to panning while held.
     const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (e.target !== e.currentTarget || e.altKey || e.ctrlKey || e.metaKey) return;
         if (e.key === ' ') {
             e.preventDefault(); // Space pans the design, it does not scroll the page
             if (!spaceHeldRef.current) holdSpace(true);
+            return;
         }
-    }, [holdSpace]);
+        const direction = KEY_DIRECTION[e.key];
+        const selected = selectedIdsRef.current;
+        if (direction && selected.length > 0) {
+            const step = e.shiftKey ? KEY_NUDGE_FAST : 1;
+            const moves = scene.getObjects()
+                .filter(obj => obj.id && selected.includes(obj.id))
+                .map(obj => new MoveCommand(obj, { x: obj.x, y: obj.y }, { x: obj.x + direction[0] * step, y: obj.y + direction[1] * step }, scene));
+            if (moves.length > 0) history.execute(moves.length === 1 ? moves[0] : new CompositeCommand(moves, `Move ${moves.length} objects`));
+        } else if (direction) {
+            const step = KEY_PAN_STEP * (e.shiftKey ? KEY_PAN_FAST : 1);
+            const current = transformRef.current;
+            // Panning toward the arrow brings what lies that way into view.
+            applyTransform({ x: current.x - direction[0] * step, y: current.y - direction[1] * step, scale: current.scale });
+        } else if (e.key === '+' || e.key === '=' || e.key === '-') {
+            const factor = e.key === '-' ? 1 / KEY_ZOOM_STEP : KEY_ZOOM_STEP;
+            applyTransform(zoomAt(transformRef.current, { x: width / 2, y: height / 2 }, factor, { minScale, maxScale }));
+        } else if (e.key === 'Escape') {
+            if (selected.length === 0) return;
+            setSelectedIds([]);
+        } else if (e.key === 'Tab') {
+            // Tab and Shift+Tab step through the shapes in drawing order. Past the last (or before the
+            // first) the key is left alone, so focus moves on out of the designer (no keyboard trap).
+            const ids = scene.getObjects().map(obj => obj.id).filter((id): id is string => !!id);
+            const current = selected.length > 0 ? ids.indexOf(selected[selected.length - 1]) : -1;
+            const next = current === -1 ? (e.shiftKey ? ids.length - 1 : 0) : current + (e.shiftKey ? -1 : 1);
+            if (ids.length === 0 || next < 0 || next >= ids.length) {
+                if (selected.length > 0) setSelectedIds([]);
+                return;
+            }
+            setSelectedIds([ids[next]]);
+        } else {
+            return;
+        }
+        e.preventDefault();
+    }, [holdSpace, scene, history, applyTransform, width, height, minScale, maxScale]);
     const handleKeyUp = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
         if (e.key === ' ') holdSpace(false);
     }, [holdSpace]);
@@ -289,9 +348,6 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
         const factor = Math.exp(-e.evt.deltaY * ZOOM_SENSITIVITY);
         applyTransform(zoomAt(transformRef.current, pointer, factor, { minScale, maxScale }));
     }, [applyTransform, minScale, maxScale]);
-    // Lazy-initialized so an omitted `commandHistory` allocates exactly one default instance,
-    // not one per render (a plain default-parameter value would re-run every render).
-    const [history] = useState(() => commandHistory ?? new CommandHistory());
 
     // A command captures `scene` at construction time and mutates it in place for the lifetime
     // of the undo/redo stack (MoveCommand/ResizeCommand, `@canvas-kit/core` commands.ts) — so the
@@ -505,6 +561,9 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
         <div
             ref={containerRef}
             tabIndex={0}
+            role="region"
+            aria-label={ariaLabel}
+            aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown + - Tab Shift+Tab Escape Space"
             onKeyDown={handleKeyDown}
             onKeyUp={handleKeyUp}
             onBlur={() => holdSpace(false)}

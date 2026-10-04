@@ -18,6 +18,11 @@ All notable changes to this package are documented here. The format follows
 - Box selection: dragging across empty space selects every shape the box touches (Shift, Ctrl or
   Cmd adds to the selection); a click on empty space clears it. Pressing a shape that is already
   selected keeps the selection, so the whole group can be dragged, as one undo step.
+- Keyboard operation: the designer is a focusable, named region (`ariaLabel`, default "Designer").
+  Arrow keys move the selection one unit (Shift: ten) as one undo step, or pan when nothing is
+  selected; `+`/`-` zoom around the middle; Tab and Shift+Tab select the next or previous shape,
+  leaving the designer past either end; Escape clears the selection. Keys pressed with Ctrl, Cmd or
+  Alt are left to the host.
 - Path objects are rendered. Their outline comes from `@canvas-kit/core`'s `tracePath`, the same
   function the canvas renderer uses, so smoothed and closed paths look the same in the designer and
   the viewer.

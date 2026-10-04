@@ -52,6 +52,10 @@ function App() {
 - **Selection** — click a shape to select it (Shift, Ctrl or Cmd adds or removes it), or drag across
   empty space to select every shape the box touches. Dragging a selected shape moves the whole
   selection, undone as one step.
+- **Keyboard** — the designer is focusable and named (`ariaLabel`): arrow keys move the selection
+  (Shift for ten units) or, with nothing selected, pan; `+`/`-` zoom around the middle; Tab and
+  Shift+Tab select the next or previous shape, and past the last one focus moves on; Escape clears
+  the selection.
 - **Viewport** — the same contract as the viewer below: omit `width`/`height` to fill the parent,
   pan with Space + drag or the middle mouse button, wheel to zoom around the pointer (`minScale`/`maxScale`), pass
   `transform` + `onTransformChange` to control it, `onViewportResize` to learn its size, and
