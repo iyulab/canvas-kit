@@ -50,6 +50,11 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # Private working context (tracking ids, local paths, hosts off the allowlist in
+      # public-text.json) must not reach this public repository (scripts/check-public-text.mjs).
+      - name: Public text
+        run: pnpm check:public-text
+
       - name: Build (all packages + site)
         run: pnpm build:all
 

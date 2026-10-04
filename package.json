@@ -21,10 +21,11 @@
     "type-check:packages": "pnpm --filter \"@canvas-kit/*\" --parallel exec tsc --noEmit",
     "type-check:all": "pnpm type-check:packages && pnpm --filter canvas-kit-site type-check",
     "type-check:site": "pnpm --filter canvas-kit-site type-check",
-    "check": "pnpm lint && pnpm build:all && pnpm check:package-types && pnpm type-check:all && pnpm test:packages",
+    "check": "pnpm lint && pnpm check:public-text && pnpm build:all && pnpm check:package-types && pnpm type-check:all && pnpm test:packages",
     "ci": "pnpm install --frozen-lockfile && pnpm check",
     "test:tooling": "node --test scripts/*.test.mjs",
     "check:dependency-drift": "node scripts/check-dependency-drift.mjs --strict",
+    "check:public-text": "node scripts/check-public-text.mjs",
     "check:package-types": "pnpm --filter \"@canvas-kit/*\" exec attw --pack ."
   },
   "repository": {

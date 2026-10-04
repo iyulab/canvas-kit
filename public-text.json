@@ -1,0 +1,15 @@
+{
+  "hosts": [
+    "github.com",
+    "www.npmjs.com",
+    "registry.npmjs.org",
+    "www.w3.org",
+    "keepachangelog.com",
+    "semver.org",
+    "iyulab.github.io"
+  ],
+  "githubRepos": [
+    "iyulab/canvas-kit",
+    "github/gitignore"
+  ]
+}
