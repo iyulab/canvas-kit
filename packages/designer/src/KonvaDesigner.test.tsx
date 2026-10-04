@@ -160,7 +160,8 @@ describe('KonvaDesigner', () => {
             />
         );
 
-        expect(screen.getByTestId('konva-layer')).toBeInTheDocument();
+        // The shapes and their transformer, and a non-interactive layer for the selection box.
+        expect(screen.getAllByTestId('konva-layer')).toHaveLength(2);
         expect(screen.getByTestId('konva-transformer')).toBeInTheDocument();
     });
 

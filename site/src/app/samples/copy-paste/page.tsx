@@ -280,7 +280,6 @@ export default function CopyPasteSample() {
                     scene={scene}
                     onSceneChange={handleSceneChange}
                     onSelectionChange={handleSelectionChange}
-                    enableMultiSelect={true}
                 />
             </div>
 

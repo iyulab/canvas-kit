@@ -1,5 +1,5 @@
 import React, { createRef } from 'react';
-import { render, act } from '@testing-library/react';
+import { render, act, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Scene } from '@canvas-kit/core';
 import { KonvaDesigner } from './KonvaDesigner';
@@ -15,7 +15,7 @@ vi.mock('react-konva', () => ({
         return <div data-testid="konva-stage">{props.children}</div>;
     },
     Layer: ({ children }: any) => <div>{children}</div>,
-    Rect: () => null,
+    Rect: (props: any) => <div data-testid="konva-rect" data-props={JSON.stringify(props)} />,
     Circle: () => null,
     Text: () => null,
     Line: () => null,
@@ -28,8 +28,9 @@ vi.mock('konva', () => ({ default: {} }));
 const stageNode = { getStage(): unknown { return stageNode; }, getPointerPosition: () => ({ x: 100, y: 50 }) };
 const shapeNode = { getStage: () => stageNode, id: () => 'n1' };
 
-function pointerDown(target: unknown, clientX: number, clientY: number) {
-    act(() => stageProps.onPointerDown({ target, evt: { clientX, clientY, pointerId: 1, button: 0 } }));
+const MIDDLE = 1;
+function pointerDown(target: unknown, clientX: number, clientY: number, button = 0, modifiers: { shiftKey?: boolean } = {}) {
+    act(() => stageProps.onPointerDown({ target, evt: { clientX, clientY, pointerId: 1, button, preventDefault: vi.fn(), ...modifiers } }));
 }
 function windowPointer(type: 'pointermove' | 'pointerup', clientX: number, clientY: number) {
     act(() => {
@@ -57,11 +58,11 @@ describe('KonvaDesigner viewport', () => {
             expect(stageProps.scaleY).toBe(1);
         });
 
-        it('pans when a drag starts on empty space, and reports it', () => {
+        it('pans with a middle-button drag, and reports it', () => {
             const onTransformChange = vi.fn();
             render(<KonvaDesigner width={400} height={200} scene={new Scene()} onTransformChange={onTransformChange} />);
 
-            pointerDown(stageNode, 100, 100);
+            pointerDown(stageNode, 100, 100, MIDDLE);
             windowPointer('pointermove', 130, 115);
             windowPointer('pointerup', 130, 115);
 
@@ -69,7 +70,7 @@ describe('KonvaDesigner viewport', () => {
             expect(onTransformChange).toHaveBeenLastCalledWith({ x: 30, y: 15, scale: 1 });
         });
 
-        it('does not pan for a drag that starts on a shape (that is the shape moving)', () => {
+        it('does not pan for a left drag that starts on a shape (that is the shape moving)', () => {
             const onTransformChange = vi.fn();
             render(<KonvaDesigner width={400} height={200} scene={new Scene()} onTransformChange={onTransformChange} />);
 
@@ -85,7 +86,7 @@ describe('KonvaDesigner viewport', () => {
             const onTransformChange = vi.fn();
             render(<KonvaDesigner width={400} height={200} scene={new Scene()} onTransformChange={onTransformChange} />);
 
-            pointerDown(stageNode, 100, 100);
+            pointerDown(stageNode, 100, 100, MIDDLE);
             windowPointer('pointermove', 102, 101);
             windowPointer('pointerup', 102, 101);
 
@@ -95,12 +96,44 @@ describe('KonvaDesigner viewport', () => {
         it('stops following the pointer once it is released', () => {
             render(<KonvaDesigner width={400} height={200} scene={new Scene()} />);
 
-            pointerDown(stageNode, 100, 100);
+            pointerDown(stageNode, 100, 100, MIDDLE);
             windowPointer('pointermove', 130, 100);
             windowPointer('pointerup', 130, 100);
             windowPointer('pointermove', 300, 300);
 
             expect(stageTransform()).toEqual({ x: 30, y: 0, scale: 1 });
+        });
+
+        it('pans with a left drag while Space is held, on empty space or over a shape', () => {
+            const onTransformChange = vi.fn();
+            const { container } = render(<KonvaDesigner width={400} height={200} scene={new Scene()} onTransformChange={onTransformChange} />);
+            const designer = container.firstElementChild as HTMLElement;
+
+            fireEvent.keyDown(designer, { key: ' ' });
+            pointerDown(shapeNode, 100, 100);
+            windowPointer('pointermove', 120, 110);
+            windowPointer('pointerup', 120, 110);
+            expect(onTransformChange).toHaveBeenLastCalledWith({ x: 20, y: 10, scale: 1 });
+
+            fireEvent.keyUp(designer, { key: ' ' });
+            onTransformChange.mockClear();
+            pointerDown(stageNode, 100, 100);
+            windowPointer('pointermove', 160, 140);
+            windowPointer('pointerup', 160, 140);
+            expect(onTransformChange).not.toHaveBeenCalled(); // without Space, that drag selects
+        });
+
+        it('stops treating Space as held once the designer loses focus', () => {
+            const onTransformChange = vi.fn();
+            const { container } = render(<KonvaDesigner width={400} height={200} scene={new Scene()} onTransformChange={onTransformChange} />);
+            const designer = container.firstElementChild as HTMLElement;
+
+            fireEvent.keyDown(designer, { key: ' ' });
+            fireEvent.blur(designer);
+            pointerDown(stageNode, 100, 100);
+            windowPointer('pointermove', 160, 140);
+            windowPointer('pointerup', 160, 140);
+            expect(onTransformChange).not.toHaveBeenCalled();
         });
 
         it('zooms around the pointer on wheel, within minScale/maxScale, without scrolling the page', () => {
@@ -133,7 +166,7 @@ describe('KonvaDesigner viewport', () => {
             );
             expect(stageTransform()).toEqual({ x: 5, y: 6, scale: 2 });
 
-            pointerDown(stageNode, 100, 100);
+            pointerDown(stageNode, 100, 100, MIDDLE);
             windowPointer('pointermove', 130, 115);
             windowPointer('pointerup', 130, 115);
             wheel(-100);
@@ -227,5 +260,86 @@ describe('KonvaDesigner viewport', () => {
             act(() => ref.current!.fitToRect({ x: 0, y: 0, width: 1, height: 1 }, { padding: 10 }));
             expect(onTransformChange.mock.lastCall![0].scale).toBe(4);
         });
+    });
+});
+
+describe('KonvaDesigner marquee selection', () => {
+    function sceneWithShapes() {
+        const scene = new Scene();
+        scene.add({ id: 'a', type: 'rect', x: 10, y: 10, width: 20, height: 20 });
+        scene.add({ id: 'b', type: 'rect', x: 100, y: 10, width: 20, height: 20 });
+        scene.add({ id: 'c', type: 'circle', x: 300, y: 150, radius: 10 });
+        return scene;
+    }
+    const selectedIds = (spy: ReturnType<typeof vi.fn>) => (spy.mock.lastCall![0] as { id: string }[]).map(o => o.id);
+
+    beforeEach(() => {
+        stageProps = {};
+    });
+
+    it('selects every shape the dragged box touches', () => {
+        const onSelectionChange = vi.fn();
+        render(<KonvaDesigner width={400} height={200} scene={sceneWithShapes()} onSelectionChange={onSelectionChange} />);
+
+        pointerDown(stageNode, 0, 0);
+        windowPointer('pointermove', 110, 40); // reaches into b, not c
+        windowPointer('pointerup', 110, 40);
+
+        expect(selectedIds(onSelectionChange)).toEqual(['a', 'b']);
+    });
+
+    it('draws the box while dragging and removes it on release', () => {
+        render(<KonvaDesigner width={400} height={200} scene={sceneWithShapes()} />);
+        const marqueeBoxes = () => document.querySelectorAll('[data-testid="konva-rect"]').length;
+        const before = marqueeBoxes();
+
+        pointerDown(stageNode, 0, 0);
+        windowPointer('pointermove', 50, 50);
+        expect(marqueeBoxes()).toBe(before + 1);
+        windowPointer('pointerup', 50, 50);
+        expect(marqueeBoxes()).toBe(before);
+    });
+
+    it('adds to the selection with Shift, and replaces it without', () => {
+        const onSelectionChange = vi.fn();
+        render(<KonvaDesigner width={400} height={200} scene={sceneWithShapes()} onSelectionChange={onSelectionChange} />);
+
+        pointerDown(stageNode, 0, 0);
+        windowPointer('pointermove', 40, 40);
+        windowPointer('pointerup', 40, 40);
+        pointerDown(stageNode, 280, 130, 0, { shiftKey: true });
+        windowPointer('pointermove', 320, 170);
+        windowPointer('pointerup', 320, 170);
+        expect(selectedIds(onSelectionChange)).toEqual(['a', 'c']);
+
+        pointerDown(stageNode, 90, 0);
+        windowPointer('pointermove', 130, 40);
+        windowPointer('pointerup', 130, 40);
+        expect(selectedIds(onSelectionChange)).toEqual(['b']);
+    });
+
+    it('clears the selection on a click on empty space', () => {
+        const onSelectionChange = vi.fn();
+        render(<KonvaDesigner width={400} height={200} scene={sceneWithShapes()} onSelectionChange={onSelectionChange} />);
+        pointerDown(stageNode, 0, 0);
+        windowPointer('pointermove', 40, 40);
+        windowPointer('pointerup', 40, 40);
+        expect(selectedIds(onSelectionChange)).toEqual(['a']);
+
+        pointerDown(stageNode, 200, 100);
+        windowPointer('pointerup', 201, 100);
+        expect(selectedIds(onSelectionChange)).toEqual([]);
+    });
+
+    it('selects in scene coordinates under a pan and zoom', () => {
+        const onSelectionChange = vi.fn();
+        render(
+            <KonvaDesigner width={400} height={200} scene={sceneWithShapes()} transform={{ x: 50, y: 0, scale: 2 }} onSelectionChange={onSelectionChange} />
+        );
+        // View (250, 0)-(290, 60) is scene (100, 0)-(120, 30): only b.
+        pointerDown(stageNode, 250, 0);
+        windowPointer('pointermove', 290, 60);
+        windowPointer('pointerup', 290, 60);
+        expect(selectedIds(onSelectionChange)).toEqual(['b']);
     });
 });

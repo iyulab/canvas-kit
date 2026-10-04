@@ -4,7 +4,8 @@ import {
     ResizeCommand,
     AddCommand,
     DeleteCommand,
-    CommandHistory
+    CommandHistory,
+    CompositeCommand
 } from './commands';
 import { Scene } from './scene';
 
@@ -329,5 +330,38 @@ describe('CommandHistory', () => {
             history.execute(new MoveCommand(obj, { x: 0, y: 0 }, { x: 10, y: 10 }, scene));
             expect(listener).not.toHaveBeenCalled();
         });
+    });
+});
+
+describe('CompositeCommand', () => {
+    it('moves several objects as one undo step', () => {
+        const scene = new Scene();
+        scene.add({ id: 'a', type: 'rect', x: 0, y: 0, width: 10, height: 10 });
+        scene.add({ id: 'b', type: 'circle', x: 50, y: 50, radius: 5 });
+        const [a, b] = scene.getObjects();
+        const history = new CommandHistory();
+
+        history.execute(new CompositeCommand([
+            new MoveCommand(a, { x: 0, y: 0 }, { x: 10, y: 5 }, scene),
+            new MoveCommand(b, { x: 50, y: 50 }, { x: 60, y: 55 }, scene),
+        ]));
+        expect(scene.getObjects().map(o => [o.x, o.y])).toEqual([[10, 5], [60, 55]]);
+
+        history.undo();
+        expect(scene.getObjects().map(o => [o.x, o.y])).toEqual([[0, 0], [50, 50]]);
+        expect(history.canUndo()).toBe(false);
+
+        history.redo();
+        expect(scene.getObjects().map(o => [o.x, o.y])).toEqual([[10, 5], [60, 55]]);
+    });
+
+    it('undoes in reverse order', () => {
+        const order: string[] = [];
+        const step = (name: string) => ({ execute: () => order.push(`do ${name}`), undo: () => order.push(`undo ${name}`), getDescription: () => name });
+        const composite = new CompositeCommand([step('a'), step('b')]);
+        composite.execute();
+        composite.undo();
+        expect(order).toEqual(['do a', 'do b', 'undo b', 'undo a']);
+        expect(composite.getDescription()).toBe('a, b');
     });
 });

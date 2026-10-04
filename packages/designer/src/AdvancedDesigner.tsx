@@ -423,7 +423,6 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
                         scene={scene}
                         onSceneChange={onSceneChange}
                         onSelectionChange={onSelectionChange}
-                        enableMultiSelect={true}
                         commandHistory={commandHistory}
                     />
                 )}

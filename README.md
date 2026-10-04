@@ -49,8 +49,11 @@ function App() {
 }
 ```
 
+- **Selection** — click a shape to select it (Shift, Ctrl or Cmd adds or removes it), or drag across
+  empty space to select every shape the box touches. Dragging a selected shape moves the whole
+  selection, undone as one step.
 - **Viewport** — the same contract as the viewer below: omit `width`/`height` to fill the parent,
-  drag empty space to pan, wheel to zoom around the pointer (`minScale`/`maxScale`), pass
+  pan with Space + drag or the middle mouse button, wheel to zoom around the pointer (`minScale`/`maxScale`), pass
   `transform` + `onTransformChange` to control it, `onViewportResize` to learn its size, and
   `ref.current.fitToRect(rect, { padding, maxScale })` through a `DesignerHandle` ref. Objects keep scene coordinates: drags and resizes
   report scene positions and sizes at any zoom.

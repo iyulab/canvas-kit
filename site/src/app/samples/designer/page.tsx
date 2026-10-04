@@ -80,7 +80,6 @@ export default function DesignerSample() {
             onSelectionChange={handleSelectionChange}
             width={800}
             height={600}
-            enableMultiSelect={true}
           />
         ) : (
           <div className="p-8 text-center text-gray-500">

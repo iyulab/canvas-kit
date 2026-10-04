@@ -1,8 +1,8 @@
 import React, { useRef, useEffect, useState, useCallback, useLayoutEffect, useReducer, forwardRef, useImperativeHandle } from 'react';
 import { Stage, Layer, Rect, Circle, Line, Text, Shape, Image as KonvaImage, Transformer } from 'react-konva';
 import {
-    DrawingObject, Scene, defaultImageLoader, CommandHistory, MoveCommand, ResizeCommand,
-    IDENTITY_TRANSFORM, fitTransform, zoomAt,
+    DrawingObject, Scene, defaultImageLoader, CommandHistory, MoveCommand, ResizeCommand, CompositeCommand,
+    IDENTITY_TRANSFORM, fitTransform, zoomAt, viewToScene, isObjectIntersectingRect,
     DEFAULT_LINE_STROKE, DEFAULT_LINE_WIDTH, DEFAULT_TEXT_FILL, DEFAULT_FONT_SIZE, DEFAULT_FONT_FAMILY,
     textBoxOffsetX, tracePath,
 } from '@canvas-kit/core';
@@ -13,8 +13,15 @@ const DEFAULT_MIN_SCALE = 0.1;
 const DEFAULT_MAX_SCALE = 10;
 // wheel deltaY -> zoom factor. Negative deltaY (scroll up) zooms in.
 const ZOOM_SENSITIVITY = 0.001;
-// Movement (CSS px) below which a press on empty space is a click (deselect), not a pan.
-const PAN_THRESHOLD = 4;
+// Movement (CSS px) below which a press is a click, not a pan or a selection drag.
+const DRAG_THRESHOLD = 4;
+const MARQUEE_STROKE = '#0080ff';
+const MARQUEE_FILL = 'rgba(0, 128, 255, 0.08)';
+
+/** The scene rect spanned by two scene points, whichever way the drag went. */
+function rectBetween(a: { x: number; y: number }, b: { x: number; y: number }): SceneRect {
+    return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), width: Math.abs(b.x - a.x), height: Math.abs(b.y - a.y) };
+}
 
 // Server rendering runs no layout effects and React warns about them — layout effect in the browser only.
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
@@ -109,7 +116,6 @@ export interface KonvaDesignerProps {
     maxScale?: number;
     onSceneChange?: (scene: Scene) => void;
     onSelectionChange?: (selection: DrawingObject[]) => void;
-    enableMultiSelect?: boolean;
     /** Shares an undo/redo stack with a caller that already owns one (e.g. `AdvancedDesigner`,
      * whose toolbar-driven adds should undo/redo together with drags/resizes done here). Standalone
      * usage gets its own stack for free when omitted. */
@@ -117,9 +123,11 @@ export interface KonvaDesignerProps {
 }
 
 /**
- * Editing surface for a `Scene`: select, drag, and resize its objects, with undo/redo. Pan by
- * dragging empty space, zoom with the wheel around the pointer; omit `width`/`height` to fill the
- * container.
+ * Editing surface for a `Scene`: select, drag, and resize its objects, with undo/redo. Click a shape
+ * to select it (Shift, Ctrl or Cmd adds or removes it), or drag across empty space to select every
+ * shape the box touches; dragging one selected shape moves them all, as one undo step. Pan with
+ * Space + drag or the middle mouse button, zoom with the wheel around the pointer; omit
+ * `width`/`height` to fill the container.
  */
 export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(function KonvaDesigner({
     width: widthProp,
@@ -132,7 +140,6 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
     maxScale = DEFAULT_MAX_SCALE,
     onSceneChange,
     onSelectionChange,
-    enableMultiSelect = false,
     commandHistory,
 }, ref) {
     const stageRef = useRef<Konva.Stage>(null);
@@ -184,44 +191,95 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
         },
     }), [width, height, fit]);
 
-    // Pan: a press on empty space (not on a shape — that drag moves the shape) that moves past the
-    // threshold. Tracked on the window so it keeps following outside the stage; the transform is
-    // computed, never left to Konva's own stage dragging, so a controlled designer stays where its
-    // owner puts it.
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const selectedIdsRef = useRef(selectedIds);
+    useLayoutEffect(() => {
+        selectedIdsRef.current = selectedIds;
+    });
+
+    // Pointer drags on the stage, tracked on the window so they keep following outside it:
+    // - pan: the middle button anywhere, or the left button while Space is held. The transform is
+    //   computed, never left to Konva's own stage dragging, so a controlled designer stays where its
+    //   owner puts it.
+    // - marquee: the left button on empty space, past the threshold — selects every shape the box
+    //   touches (Shift/Ctrl/Cmd adds to the selection). Without moving, it is a click that clears the
+    //   selection.
+    // A left press on a shape is left to Konva, which drags the shape.
     const transformRef = useRef(transform);
     useLayoutEffect(() => {
         transformRef.current = transform;
     });
-    const panCleanupRef = useRef<(() => void) | null>(null);
-    useEffect(() => () => panCleanupRef.current?.(), []);
+    const [spaceHeld, setSpaceHeld] = useState(false);
+    const spaceHeldRef = useRef(false);
+    const holdSpace = useCallback((held: boolean) => {
+        spaceHeldRef.current = held;
+        setSpaceHeld(held);
+    }, []);
+    const [marquee, setMarquee] = useState<SceneRect | null>(null);
+    const dragCleanupRef = useRef<(() => void) | null>(null);
+    useEffect(() => () => dragCleanupRef.current?.(), []);
     const handleStagePointerDown = useCallback((e: Konva.KonvaEventObject<PointerEvent>) => {
+        // Konva cancels a touch press's default action, which also keeps the browser from focusing the
+        // designer — focus it on every press, so Space and the keyboard work right after one.
+        containerRef.current?.focus({ preventScroll: true });
         const stage = e.target.getStage();
-        if (!stage || e.target !== stage || e.evt.button !== 0) return;
-        panCleanupRef.current?.();
+        if (!stage) return;
+        const { button } = e.evt;
+        const pan = button === 1 || (button === 0 && spaceHeldRef.current);
+        if (!pan && !(button === 0 && e.target === stage)) return;
+        if (button === 1) e.evt.preventDefault(); // no middle-click autoscroll
+        dragCleanupRef.current?.();
         const { pointerId, clientX: startX, clientY: startY } = e.evt;
+        const additive = e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey;
         const start = transformRef.current;
-        let panning = false;
+        const origin = containerRef.current?.getBoundingClientRect();
+        const toScene = (clientX: number, clientY: number) =>
+            viewToScene(start, { x: clientX - (origin?.left ?? 0), y: clientY - (origin?.top ?? 0) });
+        let moved = false;
         const onMove = (ev: PointerEvent) => {
             if (ev.pointerId !== pointerId) return;
             const dx = ev.clientX - startX;
             const dy = ev.clientY - startY;
-            if (!panning && Math.hypot(dx, dy) <= PAN_THRESHOLD) return;
-            panning = true;
-            applyTransform({ x: start.x + dx, y: start.y + dy, scale: start.scale });
+            if (!moved && Math.hypot(dx, dy) <= DRAG_THRESHOLD) return;
+            moved = true;
+            if (pan) applyTransform({ x: start.x + dx, y: start.y + dy, scale: start.scale });
+            else setMarquee(rectBetween(toScene(startX, startY), toScene(ev.clientX, ev.clientY)));
         };
         const stop = (ev: PointerEvent) => {
-            if (ev.pointerId === pointerId) panCleanupRef.current?.();
+            if (ev.pointerId !== pointerId) return;
+            if (!pan && moved) {
+                const box = rectBetween(toScene(startX, startY), toScene(ev.clientX, ev.clientY));
+                const hit = scene.getObjects()
+                    .filter(obj => obj.id && isObjectIntersectingRect(obj, box))
+                    .map(obj => obj.id!);
+                setSelectedIds(prev => (additive ? [...new Set([...prev, ...hit])] : hit));
+            } else if (!pan && !additive) {
+                setSelectedIds([]);
+            }
+            setMarquee(null);
+            dragCleanupRef.current?.();
         };
         window.addEventListener('pointermove', onMove);
         window.addEventListener('pointerup', stop);
         window.addEventListener('pointercancel', stop);
-        panCleanupRef.current = () => {
+        dragCleanupRef.current = () => {
             window.removeEventListener('pointermove', onMove);
             window.removeEventListener('pointerup', stop);
             window.removeEventListener('pointercancel', stop);
-            panCleanupRef.current = null;
+            dragCleanupRef.current = null;
         };
-    }, [applyTransform]);
+    }, [applyTransform, scene]);
+
+    // Space switches the pointer to panning while it is held — tracked while the designer has focus.
+    const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (e.key === ' ') {
+            e.preventDefault(); // Space pans the design, it does not scroll the page
+            if (!spaceHeldRef.current) holdSpace(true);
+        }
+    }, [holdSpace]);
+    const handleKeyUp = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (e.key === ' ') holdSpace(false);
+    }, [holdSpace]);
 
     const handleStageWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
         const stage = e.target.getStage();
@@ -255,9 +313,6 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
         return () => history.removeEventListener(handleHistoryChange);
     }, [history, scene, onSceneChange]);
 
-    // State management
-    const [selectedIds, setSelectedIds] = useState<string[]>([]);
-
     // Update transformer when selection changes
     useEffect(() => {
         const transformer = transformerRef.current;
@@ -280,52 +335,46 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
         onSelectionChangeRef.current?.(selectedObjects);
     }, [selectedIds, scene]);
 
-    // Mouse event handlers
+    // A press on a shape selects it; Shift/Ctrl/Cmd adds or removes it. Pressing a shape that is
+    // already selected keeps the selection, so the press can start dragging the whole group.
+    // Presses on empty space are handled by the pointer handler above.
     const handleStageMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
         const stage = e.target.getStage();
-        if (!stage) return;
-
-        const clickedOnEmpty = e.target === stage;
-
-        if (clickedOnEmpty) {
-            setSelectedIds([]);
+        if (!stage || e.target === stage || e.evt.button !== 0 || spaceHeldRef.current) return;
+        const clickedId = e.target.id();
+        if (!clickedId) return;
+        if (e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey) {
+            setSelectedIds(prev => (prev.includes(clickedId) ? prev.filter(id => id !== clickedId) : [...prev, clickedId]));
         } else {
-            const clickedId = e.target.id();
-            if (clickedId) {
-                if (enableMultiSelect && e.evt.ctrlKey) {
-                    setSelectedIds(prev =>
-                        prev.includes(clickedId)
-                            ? prev.filter(id => id !== clickedId)
-                            : [...prev, clickedId]
-                    );
-                } else {
-                    setSelectedIds([clickedId]);
-                }
-            }
+            setSelectedIds(prev => (prev.includes(clickedId) ? prev : [clickedId]));
         }
-    }, [enableMultiSelect]);
+    }, []);
 
     // Object drag handlers — routed through a Command (undo/redo, `@canvas-kit/core` commands.ts)
     // instead of mutating the scene directly, so a drag can be undone like an add/delete can.
     // The command mutates `scene`'s object in place; the `useEffect` above is what turns that
     // into a fresh `Scene` reference for `onSceneChange`.
+    // Dragging one of several selected shapes moves them all (Konva's Transformer drags the others
+    // along), and Konva ends each of their drags separately. The first drag end records every
+    // selected shape's new position as one command, so the group move undoes in one step; the
+    // others then find their object already in place and record nothing.
     const handleObjectDragEnd = useCallback((e: Konva.KonvaEventObject<DragEvent>) => {
         const target = e.target;
-        const objectId = target.id();
-        const originalObject = scene.getObjects().find(obj => obj.id === objectId);
-        if (!originalObject) return;
-
-        const newX = target.x();
-        const newY = target.y();
-        if (originalObject.x === newX && originalObject.y === newY) return; // no-op drag
-
-        const cmd = new MoveCommand(
-            originalObject,
-            { x: originalObject.x, y: originalObject.y },
-            { x: newX, y: newY },
-            scene
-        );
-        history.execute(cmd);
+        const targetId = target.id();
+        const ids = selectedIdsRef.current.includes(targetId) ? selectedIdsRef.current : [targetId];
+        const stage = ids.length > 1 ? target.getStage() : null;
+        const moves: MoveCommand[] = [];
+        for (const id of ids) {
+            const obj = scene.getObjects().find(o => o.id === id);
+            const node = id === targetId ? target : stage?.findOne(`#${id}`);
+            if (!obj || !node) continue;
+            const x = node.x();
+            const y = node.y();
+            if (obj.x === x && obj.y === y) continue; // not moved, or already recorded
+            moves.push(new MoveCommand(obj, { x: obj.x, y: obj.y }, { x, y }, scene));
+        }
+        if (moves.length === 0) return;
+        history.execute(moves.length === 1 ? moves[0] : new CompositeCommand(moves, `Move ${moves.length} objects`));
     }, [scene, history]);
 
     // Object resize handler — Konva's Transformer reports a resize as a scale factor on the
@@ -369,7 +418,7 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
             id: obj.id,
             x: obj.x,
             y: obj.y,
-            draggable: true,
+            draggable: !spaceHeld,
             onDragEnd: handleObjectDragEnd,
             onTransformEnd: handleObjectTransformEnd,
         };
@@ -450,12 +499,21 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
             default:
                 return null;
         }
-    }, [selectedIds, handleObjectDragEnd, handleObjectTransformEnd]);
+    }, [selectedIds, spaceHeld, handleObjectDragEnd, handleObjectTransformEnd]);
 
     return (
         <div
             ref={containerRef}
-            style={{ position: 'relative', width: widthProp ?? '100%', height: heightProp ?? '100%' }}
+            tabIndex={0}
+            onKeyDown={handleKeyDown}
+            onKeyUp={handleKeyUp}
+            onBlur={() => holdSpace(false)}
+            style={{
+                position: 'relative',
+                width: widthProp ?? '100%',
+                height: heightProp ?? '100%',
+                cursor: spaceHeld ? 'grab' : undefined,
+            }}
         >
             <Stage
                 width={width}
@@ -481,6 +539,19 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
                             'bottom-left', 'bottom-center', 'bottom-right'
                         ]}
                     />
+                </Layer>
+                <Layer listening={false}>
+                    {marquee && (
+                        <Rect
+                            x={marquee.x}
+                            y={marquee.y}
+                            width={marquee.width}
+                            height={marquee.height}
+                            fill={MARQUEE_FILL}
+                            stroke={MARQUEE_STROKE}
+                            strokeWidth={1 / transform.scale}
+                        />
+                    )}
                 </Layer>
             </Stage>
         </div>

@@ -21,6 +21,30 @@ export interface CommandHistoryEvent {
     canRedo: boolean;
 }
 
+/** Several commands applied, undone and redone as one step — moving every selected object at once,
+ * for example. Undo runs the commands in reverse order. */
+export class CompositeCommand implements ICommand {
+    private readonly commands: readonly ICommand[];
+    private readonly description: string;
+
+    constructor(commands: readonly ICommand[], description?: string) {
+        this.commands = [...commands];
+        this.description = description ?? this.commands.map(command => command.getDescription()).join(', ');
+    }
+
+    execute(): void {
+        for (const command of this.commands) command.execute();
+    }
+
+    undo(): void {
+        for (let i = this.commands.length - 1; i >= 0; i--) this.commands[i].undo();
+    }
+
+    getDescription(): string {
+        return this.description;
+    }
+}
+
 export class MoveCommand implements ICommand {
     private objectId: string;
     private oldPosition: { x: number; y: number };

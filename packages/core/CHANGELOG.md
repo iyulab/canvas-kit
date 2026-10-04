@@ -38,6 +38,7 @@ differently depending on where it was drawn.
 - `zoomAt(transform, point, factor, bounds)` — zoom by a factor around a view point, with the scale
   clamped.
 - `ResizeGeometry` type.
+- `CompositeCommand` applies, undoes and redoes several commands as one step.
 
 ### Fixed
 

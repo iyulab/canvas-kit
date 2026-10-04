@@ -156,7 +156,6 @@ export default function SelectionPage() {
                             onSelectionChange={handleSelectionChange}
                             width={500}
                             height={350}
-                            enableMultiSelect={true}
                         />
                     </div>
 
