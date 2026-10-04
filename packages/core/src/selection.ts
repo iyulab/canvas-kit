@@ -1,14 +1,8 @@
 import type { DrawingObject } from './types';
+import type { BoundingBox } from './geometry';
+import { containsPoint, getObjectBounds, isObjectInsideRect, isObjectIntersectingRect } from './geometry';
 
-/**
- * 선택된 객체의 바운딩 박스 정보
- */
-export interface BoundingBox {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-}
+export type { BoundingBox } from './geometry';
 
 /**
  * 선택 상태 변경 이벤트
@@ -174,41 +168,7 @@ export class SelectionManager {
      * 개별 객체의 바운딩 박스 계산
      */
     getObjectBounds(obj: DrawingObject): BoundingBox {
-        switch (obj.type) {
-            case 'rect':
-            case 'image':
-                return {
-                    x: obj.x,
-                    y: obj.y,
-                    width: obj.width,
-                    height: obj.height
-                };
-            case 'circle':
-                return {
-                    x: obj.x - obj.radius,
-                    y: obj.y - obj.radius,
-                    width: obj.radius * 2,
-                    height: obj.radius * 2
-                };
-            case 'text':
-                const fontSize = obj.fontSize || 16;
-                const textWidth = obj.text.length * fontSize * 0.6; // 근사치
-                const textHeight = fontSize;
-                return {
-                    x: obj.x,
-                    y: obj.y - textHeight,
-                    width: textWidth,
-                    height: textHeight
-                };
-            default:
-                // 확장성을 위해 기본값 반환
-                return {
-                    x: (obj as any).x || 0,
-                    y: (obj as any).y || 0,
-                    width: 0,
-                    height: 0
-                };
-        }
+        return getObjectBounds(obj);
     }
 
     /**
@@ -259,150 +219,21 @@ export class SelectionUtils {
      * Check if a point is inside a drawing object
      */
     static isPointInObject(point: Point, obj: DrawingObject): boolean {
-        switch (obj.type) {
-            case 'rect':
-            case 'image':
-                return point.x >= obj.x &&
-                    point.x <= obj.x + obj.width &&
-                    point.y >= obj.y &&
-                    point.y <= obj.y + obj.height;
-
-            case 'circle':
-                const dx = point.x - obj.x;
-                const dy = point.y - obj.y;
-                return Math.sqrt(dx * dx + dy * dy) <= obj.radius;
-
-            case 'text':
-                // Simple text bounds check (can be enhanced with actual text metrics)
-                const textWidth = (obj.text?.length || 0) * (obj.fontSize || 16) * 0.6;
-                const textHeight = obj.fontSize || 16;
-                return point.x >= obj.x &&
-                    point.x <= obj.x + textWidth &&
-                    point.y >= obj.y &&
-                    point.y <= obj.y + textHeight;
-
-            case 'path':
-                // For paths, check if point is within the bounding box
-                if (obj.points && obj.points.length > 0) {
-                    // points is [x1, y1, x2, y2, ...]
-                    const xs: number[] = [];
-                    const ys: number[] = [];
-                    for (let i = 0; i < obj.points.length; i += 2) {
-                        xs.push(obj.points[i]);
-                        ys.push(obj.points[i + 1]);
-                    }
-                    const minX = Math.min(...xs);
-                    const maxX = Math.max(...xs);
-                    const minY = Math.min(...ys);
-                    const maxY = Math.max(...ys);
-
-                    return point.x >= minX && point.x <= maxX &&
-                        point.y >= minY && point.y <= maxY;
-                }
-                return false;
-
-            case 'line':
-                // For lines, check if point is within the bounding box
-                if (obj.points && obj.points.length > 0) {
-                    // points is [x1, y1, x2, y2, ...]
-                    const xs: number[] = [];
-                    const ys: number[] = [];
-                    for (let i = 0; i < obj.points.length; i += 2) {
-                        xs.push(obj.points[i]);
-                        ys.push(obj.points[i + 1]);
-                    }
-                    const minX = Math.min(...xs);
-                    const maxX = Math.max(...xs);
-                    const minY = Math.min(...ys);
-                    const maxY = Math.max(...ys);
-
-                    // Add some tolerance for line selection
-                    const tolerance = (obj.strokeWidth || 1) + 3;
-                    return point.x >= minX - tolerance && point.x <= maxX + tolerance &&
-                        point.y >= minY - tolerance && point.y <= maxY + tolerance;
-                }
-                return false;
-
-            default:
-                return false;
-        }
+        return containsPoint(obj, point.x, point.y);
     }
 
     /**
      * Check if an object is completely inside a rectangle
      */
     static isObjectCompletelyInRect(obj: DrawingObject, rect: Rect): boolean {
-        switch (obj.type) {
-            case 'rect':
-            case 'image':
-                return obj.x >= rect.x &&
-                    obj.y >= rect.y &&
-                    obj.x + obj.width <= rect.x + rect.width &&
-                    obj.y + obj.height <= rect.y + rect.height;
-
-            case 'circle':
-                return obj.x - obj.radius >= rect.x &&
-                    obj.y - obj.radius >= rect.y &&
-                    obj.x + obj.radius <= rect.x + rect.width &&
-                    obj.y + obj.radius <= rect.y + rect.height;
-
-            case 'text':
-                const textWidth = (obj.text?.length || 0) * (obj.fontSize || 16) * 0.6;
-                const textHeight = obj.fontSize || 16;
-                return obj.x >= rect.x &&
-                    obj.y >= rect.y &&
-                    obj.x + textWidth <= rect.x + rect.width &&
-                    obj.y + textHeight <= rect.y + rect.height;
-
-            case 'path':
-            case 'line':
-                if (obj.points && obj.points.length > 0) {
-                    // points is [x1, y1, x2, y2, ...]
-                    const xs: number[] = [];
-                    const ys: number[] = [];
-                    for (let i = 0; i < obj.points.length; i += 2) {
-                        xs.push(obj.points[i]);
-                        ys.push(obj.points[i + 1]);
-                    }
-                    const minX = Math.min(...xs);
-                    const maxX = Math.max(...xs);
-                    const minY = Math.min(...ys);
-                    const maxY = Math.max(...ys);
-
-                    return minX >= rect.x && minY >= rect.y &&
-                        maxX <= rect.x + rect.width && maxY <= rect.y + rect.height;
-                }
-                return false;
-
-            default:
-                return false;
-        }
+        return isObjectInsideRect(obj, rect);
     }
 
     /**
      * Check if an object intersects with a rectangle (partial overlap)
      */
     static isObjectIntersectingRect(obj: DrawingObject, rect: Rect): boolean {
-        switch (obj.type) {
-            case 'rect':
-            case 'image':
-                return !(obj.x > rect.x + rect.width ||
-                    obj.x + obj.width < rect.x ||
-                    obj.y > rect.y + rect.height ||
-                    obj.y + obj.height < rect.y);
-
-            case 'circle':
-                // Check if circle intersects with rectangle
-                const closestX = Math.max(rect.x, Math.min(obj.x, rect.x + rect.width));
-                const closestY = Math.max(rect.y, Math.min(obj.y, rect.y + rect.height));
-                const dx = obj.x - closestX;
-                const dy = obj.y - closestY;
-                return (dx * dx + dy * dy) <= (obj.radius * obj.radius);
-
-            default:
-                // For other types, fall back to complete containment check
-                return this.isObjectCompletelyInRect(obj, rect);
-        }
+        return isObjectIntersectingRect(obj, rect);
     }
 
     /**

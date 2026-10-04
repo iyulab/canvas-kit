@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Stage, Layer, Rect as KonvaRect, Circle as KonvaCircle, Line as KonvaLine, Text as KonvaText } from 'react-konva';
-import { Scene, CommandHistory, AddCommand } from '@canvas-kit/core';
+import { Scene, CommandHistory, AddCommand, DEFAULT_FONT_SIZE, DEFAULT_LINE_STROKE, DEFAULT_LINE_WIDTH, DEFAULT_TEXT_FILL } from '@canvas-kit/core';
 import type { DrawingObject, CommandHistoryEvent } from '@canvas-kit/core';
 import { KonvaDesigner } from './KonvaDesigner';
 import { FreeDrawingCanvas } from './FreeDrawingCanvas';
@@ -290,13 +290,13 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
             {scene.getObjects().map(obj => {
                 switch (obj.type) {
                     case 'rect':
-                        return <KonvaRect key={obj.id} x={obj.x} y={obj.y} width={(obj as any).width} height={(obj as any).height} fill={obj.fill} stroke={obj.stroke} strokeWidth={obj.strokeWidth} />;
+                        return <KonvaRect key={obj.id} x={obj.x} y={obj.y} width={obj.width} height={obj.height} fill={obj.fill} stroke={obj.stroke} strokeWidth={obj.strokeWidth} />;
                     case 'circle':
-                        return <KonvaCircle key={obj.id} x={obj.x} y={obj.y} radius={(obj as any).radius} fill={obj.fill} stroke={obj.stroke} strokeWidth={obj.strokeWidth} />;
+                        return <KonvaCircle key={obj.id} x={obj.x} y={obj.y} radius={obj.radius} fill={obj.fill} stroke={obj.stroke} strokeWidth={obj.strokeWidth} />;
                     case 'line':
-                        return <KonvaLine key={obj.id} points={(obj as any).points} stroke={obj.stroke || 'black'} strokeWidth={obj.strokeWidth || 1} />;
+                        return <KonvaLine key={obj.id} x={obj.x} y={obj.y} points={obj.points} stroke={obj.stroke || DEFAULT_LINE_STROKE} strokeWidth={obj.strokeWidth || DEFAULT_LINE_WIDTH} />;
                     case 'text':
-                        return <KonvaText key={obj.id} x={obj.x} y={obj.y} text={(obj as any).text} fontSize={(obj as any).fontSize || 16} fill={obj.fill || 'black'} />;
+                        return <KonvaText key={obj.id} x={obj.x} y={obj.y} text={obj.text} fontSize={obj.fontSize ?? DEFAULT_FONT_SIZE} fill={obj.fill || DEFAULT_TEXT_FILL} />;
                     default:
                         return null;
                 }

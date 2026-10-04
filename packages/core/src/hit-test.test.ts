@@ -115,13 +115,21 @@ describe('HitTest', () => {
         it('uses the canvas context measureText width, not the old length*fontSize*0.6 estimate', () => {
             const text = { type: 'text' as const, x: 0, y: 20, text: 'Hello', fontSize: 16 };
             // Stub width: 5 chars * 3 = 15. Old heuristic would have been 5*16*0.6 = 48.
-            expect(HitTest.isPointInText(14, 10, text)).toBe(true);
-            expect(HitTest.isPointInText(16, 10, text)).toBe(false);
+            expect(HitTest.isPointInText(14, 28, text)).toBe(true);
+            expect(HitTest.isPointInText(16, 28, text)).toBe(false);
+        });
+
+        it('treats x/y as the top-left of the text box, one fontSize line tall', () => {
+            const text = { type: 'text' as const, x: 0, y: 20, text: 'Hello', fontSize: 16 };
+            expect(HitTest.isPointInText(5, 20, text)).toBe(true); // top edge
+            expect(HitTest.isPointInText(5, 36, text)).toBe(true); // bottom edge
+            expect(HitTest.isPointInText(5, 10, text)).toBe(false); // above x/y
+            expect(HitTest.isPointInText(5, 40, text)).toBe(false); // below the line
         });
 
         it('passes the text content to measureText', () => {
             const text = { type: 'text' as const, x: 0, y: 20, text: 'Hello', fontSize: 16 };
-            HitTest.isPointInText(0, 10, text);
+            HitTest.isPointInText(0, 28, text);
             expect(measureText).toHaveBeenCalledWith('Hello');
         });
     });

@@ -109,6 +109,15 @@ npm install @canvas-kit/core
 `core` has no UI — it exposes the `Scene`/`CanvasKitRenderer` data model that `designer` and
 `viewer` build on. Use it directly for server-side processing or a custom renderer.
 
+Object geometry is the same in every renderer, and `getObjectBounds`, `containsPoint`,
+`isObjectInsideRect` and `isObjectIntersectingRect` compute it for you:
+
+- `rect` / `image`: `x`/`y` is the top-left corner. `circle`: `x`/`y` is the center.
+- `text`: `x`/`y` is the top-left of the text box (one `fontSize` line tall); without `fill` it is
+  drawn black.
+- `line` / `path`: `points` are relative to `x`/`y`, so moving the object moves the whole polyline.
+  A line without `stroke`/`strokeWidth` is drawn black, 1px wide.
+
 ## 🎨 What You Can Build
 
 - **Design Tools** - Online graphics editors and creative apps

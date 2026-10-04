@@ -207,9 +207,9 @@ export const SimpleSelectionDemo: React.FC<SimpleSelectionDemoProps> = ({
                         {...commonProps}
                         x={obj.x}
                         y={obj.y}
-                        width={(obj as any).width}
-                        height={(obj as any).height}
-                        fill={(obj as any).fill || '#ff0000'}
+                        width={obj.width}
+                        height={obj.height}
+                        fill={obj.fill || '#ff0000'}
                     />
                 );
 
@@ -220,8 +220,8 @@ export const SimpleSelectionDemo: React.FC<SimpleSelectionDemoProps> = ({
                         {...commonProps}
                         x={obj.x}
                         y={obj.y}
-                        radius={(obj as any).radius}
-                        fill={(obj as any).fill || '#00ff00'}
+                        radius={obj.radius}
+                        fill={obj.fill || '#00ff00'}
                     />
                 );
 

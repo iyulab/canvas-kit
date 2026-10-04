@@ -3,6 +3,7 @@ import type { Rect, Circle, Text, Path, Line, Image as ImageShape, DrawingObject
 import { IDENTITY_TRANSFORM } from './types';
 import type { ImageLoader } from './image-loader';
 import { defaultImageLoader } from './image-loader';
+import { DEFAULT_FONT_FAMILY, DEFAULT_FONT_SIZE, DEFAULT_LINE_STROKE, DEFAULT_LINE_WIDTH, DEFAULT_TEXT_FILL } from './geometry';
 
 export interface CanvasKitRendererOptions {
     /** Image loads are async; called once an image referenced by a rendered scene finishes
@@ -68,22 +69,22 @@ export class CanvasKitRenderer {
     private renderObject(obj: DrawingObject) {
         switch (obj.type) {
             case 'rect':
-                this.drawRect(obj as Rect);
+                this.drawRect(obj);
                 break;
             case 'circle':
-                this.drawCircle(obj as Circle);
+                this.drawCircle(obj);
                 break;
             case 'text':
-                this.drawText(obj as Text);
+                this.drawText(obj);
                 break;
             case 'path':
-                this.drawPath(obj as Path);
+                this.drawPath(obj);
                 break;
             case 'line':
-                this.drawLine(obj as Line);
+                this.drawLine(obj);
                 break;
             case 'image':
-                this.drawImage(obj as ImageShape);
+                this.drawImage(obj);
                 break;
             default:
                 break;
@@ -120,17 +121,17 @@ export class CanvasKitRenderer {
     }
 
     private drawText(text: Text) {
-        const fontSize = text.fontSize || 16;
-        const fontFamily = text.fontFamily || 'Arial';
+        const fontSize = text.fontSize ?? DEFAULT_FONT_SIZE;
+        const fontFamily = text.fontFamily ?? DEFAULT_FONT_FAMILY;
         const align = text.align || 'left';
 
         this.ctx.font = `${fontSize}px ${fontFamily}`;
         this.ctx.textAlign = align;
+        // x/y is the top of the text box, as in every other renderer (geometry.ts).
+        this.ctx.textBaseline = 'top';
 
-        if (text.fill) {
-            this.ctx.fillStyle = text.fill;
-            this.ctx.fillText(text.text, text.x, text.y);
-        }
+        this.ctx.fillStyle = text.fill || DEFAULT_TEXT_FILL;
+        this.ctx.fillText(text.text, text.x, text.y);
 
         if (text.stroke && text.strokeWidth) {
             this.ctx.strokeStyle = text.stroke;
@@ -139,11 +140,15 @@ export class CanvasKitRenderer {
         }
 
         this.ctx.textAlign = 'left';
+        this.ctx.textBaseline = 'alphabetic';
     }
 
     private drawPath(path: Path) {
         if (path.points.length < 4) return;
 
+        // points are relative to the object's x/y (geometry.ts).
+        this.ctx.save();
+        this.ctx.translate(path.x, path.y);
         this.ctx.beginPath();
         this.ctx.moveTo(path.points[0], path.points[1]);
 
@@ -182,11 +187,14 @@ export class CanvasKitRenderer {
             this.ctx.lineWidth = path.strokeWidth;
             this.ctx.stroke();
         }
+        this.ctx.restore();
     }
 
     private drawLine(line: Line) {
         if (line.points.length < 4) return;
 
+        this.ctx.save();
+        this.ctx.translate(line.x, line.y);
         this.ctx.beginPath();
         this.ctx.moveTo(line.points[0], line.points[1]);
 
@@ -194,11 +202,10 @@ export class CanvasKitRenderer {
             this.ctx.lineTo(line.points[i], line.points[i + 1]);
         }
 
-        if (line.stroke && line.strokeWidth) {
-            this.ctx.strokeStyle = line.stroke;
-            this.ctx.lineWidth = line.strokeWidth;
-            this.ctx.stroke();
-        }
+        this.ctx.strokeStyle = line.stroke || DEFAULT_LINE_STROKE;
+        this.ctx.lineWidth = line.strokeWidth || DEFAULT_LINE_WIDTH;
+        this.ctx.stroke();
+        this.ctx.restore();
     }
 
     private drawImage(image: ImageShape) {

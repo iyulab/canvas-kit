@@ -131,3 +131,72 @@ describe('CanvasKitRenderer image objects', () => {
     expect(() => renderer.render(badScene)).not.toThrow();
   });
 });
+
+describe('CanvasKitRenderer object geometry', () => {
+  function drawCallsFor(add: (scene: Scene) => void) {
+    const canvas = document.createElement('canvas');
+    const scene = new Scene();
+    add(scene);
+    new CanvasKitRenderer(canvas).render(scene);
+    // @ts-ignore vitest-canvas-mock helper
+    return canvas.getContext('2d').__getDrawCalls() as Array<{ type: string; transform: number[]; props: Record<string, unknown> }>;
+  }
+
+  it('draws text with x/y as the top of the text box', () => {
+    const canvas = document.createElement('canvas');
+    const scene = new Scene();
+    scene.add({ type: 'text', x: 10, y: 20, text: 'Label', fill: 'black' });
+    const renderer = new CanvasKitRenderer(canvas);
+    const ctx = canvas.getContext('2d')!;
+    const baselines: string[] = [];
+    const fillText = ctx.fillText.bind(ctx);
+    ctx.fillText = (...args: Parameters<CanvasRenderingContext2D['fillText']>) => {
+      baselines.push(ctx.textBaseline);
+      fillText(...args);
+    };
+
+    renderer.render(scene);
+
+    expect(baselines).toEqual(['top']);
+    expect(ctx.textBaseline).toBe('alphabetic'); // restored for whatever draws next
+  });
+
+  it('draws line points relative to the object x/y', () => {
+    const calls = drawCallsFor(scene => {
+      scene.add({ type: 'line', x: 200, y: 30, points: [0, 0, 100, 0], stroke: 'black', strokeWidth: 1 });
+    });
+    const stroke = calls.find(c => c.type === 'stroke');
+    expect(stroke?.transform).toEqual([1, 0, 0, 1, 200, 30]);
+  });
+
+  it('draws path points relative to the object x/y', () => {
+    const calls = drawCallsFor(scene => {
+      scene.add({ type: 'path', x: 5, y: 7, points: [0, 0, 10, 10], stroke: 'black', strokeWidth: 1 });
+    });
+    const stroke = calls.find(c => c.type === 'stroke');
+    expect(stroke?.transform).toEqual([1, 0, 0, 1, 5, 7]);
+  });
+
+  it('draws text without a fill in the default text color instead of skipping it', () => {
+    const calls = drawCallsFor(scene => {
+      scene.add({ type: 'text', x: 0, y: 0, text: 'Label' });
+    });
+    expect(calls.find(c => c.type === 'fillText')?.props).toMatchObject({ text: 'Label' });
+  });
+
+  it('draws a line without stroke settings in the default stroke instead of skipping it', () => {
+    const calls = drawCallsFor(scene => {
+      scene.add({ type: 'line', x: 0, y: 0, points: [0, 0, 10, 10] });
+    });
+    expect(calls.some(c => c.type === 'stroke')).toBe(true);
+  });
+
+  it('does not let a line offset leak into the next object', () => {
+    const calls = drawCallsFor(scene => {
+      scene.add({ type: 'line', x: 200, y: 30, points: [0, 0, 100, 0], stroke: 'black', strokeWidth: 1 });
+      scene.add({ type: 'rect', x: 0, y: 0, width: 10, height: 10, fill: 'red' });
+    });
+    const fillRect = calls.find(c => c.type === 'fillRect');
+    expect(fillRect?.transform).toEqual([1, 0, 0, 1, 0, 0]);
+  });
+});

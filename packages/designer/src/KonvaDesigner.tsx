@@ -3,8 +3,9 @@ import { Stage, Layer, Rect, Circle, Line, Text, Image as KonvaImage, Transforme
 import {
     DrawingObject, Scene, defaultImageLoader, CommandHistory, MoveCommand, ResizeCommand,
     IDENTITY_TRANSFORM, fitTransform, zoomAt,
+    DEFAULT_LINE_STROKE, DEFAULT_LINE_WIDTH, DEFAULT_TEXT_FILL,
 } from '@canvas-kit/core';
-import type { Image as ImageShape, Transform, Rect as SceneRect, Size } from '@canvas-kit/core';
+import type { Image as ImageShape, Transform, Rect as SceneRect, Size, ResizeGeometry } from '@canvas-kit/core';
 import type Konva from 'konva';
 
 const DEFAULT_MIN_SCALE = 0.1;
@@ -343,8 +344,8 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
         const obj = scene.getObjects().find(o => o.id === objectId);
         if (!obj) return;
 
-        let oldSize: { x: number; y: number; width?: number; height?: number; radius?: number };
-        let newSize: typeof oldSize;
+        let oldSize: ResizeGeometry;
+        let newSize: ResizeGeometry;
         if (obj.type === 'rect' || obj.type === 'image') {
             oldSize = { x: obj.x, y: obj.y, width: obj.width, height: obj.height };
             newSize = { x, y, width: Math.max(5, obj.width * scaleX), height: Math.max(5, obj.height * scaleY) };
@@ -402,8 +403,8 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
                         key={obj.id}
                         {...commonProps}
                         points={obj.points}
-                        stroke={obj.stroke || 'black'}
-                        strokeWidth={obj.strokeWidth || 1}
+                        stroke={obj.stroke || DEFAULT_LINE_STROKE}
+                        strokeWidth={obj.strokeWidth || DEFAULT_LINE_WIDTH}
                     />
                 );
             case 'text':
@@ -413,7 +414,7 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
                         {...commonProps}
                         text={obj.text}
                         fontSize={obj.fontSize || 16}
-                        fill={obj.fill || 'black'}
+                        fill={obj.fill || DEFAULT_TEXT_FILL}
                         fontFamily={obj.fontFamily || 'Arial'}
                         stroke={isSelected ? '#0080ff' : obj.stroke}
                         strokeWidth={isSelected ? 1 : obj.strokeWidth || 0}

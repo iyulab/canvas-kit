@@ -40,9 +40,10 @@ Canvas-Kit은 3개의 npm 패키지로 구성되며, UI 종속성에 따라 명�
 |--------|------|
 | `Scene` | DrawingObject 컬렉션 관리 (add/remove/getObjects) |
 | `CanvasKitRenderer` | Canvas 2D API로 Scene 렌더링 |
-| `HitTest` | 좌표 기반 객체 감지 (bounding box) |
+| `HitTest` | 좌표 기반 객체 감지 — `geometry.ts`에 위임 |
 | `SelectionManager` | 선택 상태 관리, 이벤트 에미터 |
-| `SelectionUtils` | 영역 선택, 바운딩 박스 계산 |
+| `SelectionUtils` | 영역 선택 — 판정은 `geometry.ts`에 위임 |
+| `geometry.ts` | 객체 기하의 단일 정의 — `getObjectBounds`·`containsPoint`·`isObjectInsideRect`·`isObjectIntersectingRect`, 렌더 기본값 상수 |
 | `CommandHistory` | Undo/Redo 스택 + 이벤트 에미터 |
 | `Clipboard` | 싱글톤 클립보드, 깊은 복사 |
 
@@ -53,6 +54,11 @@ DrawingObject = Rect | Circle | Text | Path | Line
 ```
 
 모든 타입은 `packages/core/src/types.ts`에 정의. `id?`, `x`, `y`, `fill?`, `stroke?`, `strokeWidth?`를 공유 속성으로 가짐.
+
+**좌표 의미는 렌더러마다 같다**(`CanvasKitRenderer`의 Canvas 2D와 designer의 Konva): `rect`/`image`는 `x`/`y`가 좌상단, `circle`은 중심,
+`text`는 텍스트 상자의 좌상단(높이 = `fontSize` 한 줄), `line`/`path`의 `points`는 `x`/`y` 기준 상대좌표(이동 = `x`/`y` 변경). 채우기·선 기본값
+(`DEFAULT_TEXT_FILL`·`DEFAULT_LINE_STROKE`·`DEFAULT_LINE_WIDTH`)도 한 곳에서 정의해 두 렌더러가 같은 문서를 같게 그린다. 바운딩 박스·hit test·영역 선택은
+전부 `geometry.ts` 하나를 쓴다.
 
 ### Command Pattern
 
@@ -117,6 +123,7 @@ packages/
 │   ├── types.ts        — DrawingObject 타입 정의
 │   ├── scene.ts        — Scene 클래스
 │   ├── renderer.ts     — CanvasKitRenderer
+│   ├── geometry.ts     — 객체 기하(박스·포함·영역 판정)와 렌더 기본값
 │   ├── hit-test.ts     — HitTest
 │   ├── selection.ts    — SelectionManager, SelectionUtils
 │   ├── transform.ts    — viewToScene/sceneToView, fitTransform, zoomAt (뷰 transform 좌표 계산)

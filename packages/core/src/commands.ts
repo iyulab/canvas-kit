@@ -60,13 +60,23 @@ export class MoveCommand implements ICommand {
     }
 }
 
+/** The position and size a resize sets. `width`/`height` apply to rects and images, `radius` to
+ * circles; other object types only move. */
+export interface ResizeGeometry {
+    x: number;
+    y: number;
+    width?: number;
+    height?: number;
+    radius?: number;
+}
+
 export class ResizeCommand implements ICommand {
     private objectId: string;
-    private oldSize: any;
-    private newSize: any;
+    private oldSize: ResizeGeometry;
+    private newSize: ResizeGeometry;
     private scene: Scene;
 
-    constructor(object: DrawingObject, oldSize: any, newSize: any, scene: Scene) {
+    constructor(object: DrawingObject, oldSize: ResizeGeometry, newSize: ResizeGeometry, scene: Scene) {
         this.objectId = object.id || `${object.type}-${Date.now()}`;
         this.oldSize = { ...oldSize };
         this.newSize = { ...newSize };
@@ -74,31 +84,25 @@ export class ResizeCommand implements ICommand {
     }
 
     execute(): void {
-        const obj = this.scene.getObjects().find(o => o.id === this.objectId);
-        if (!obj) return;
-
-        if (obj.type === 'rect' || obj.type === 'image') {
-            (obj as any).width = this.newSize.width;
-            (obj as any).height = this.newSize.height;
-        } else if (obj.type === 'circle') {
-            (obj as any).radius = this.newSize.radius;
-        }
-        obj.x = this.newSize.x;
-        obj.y = this.newSize.y;
+        this.apply(this.newSize);
     }
 
     undo(): void {
+        this.apply(this.oldSize);
+    }
+
+    private apply(size: ResizeGeometry): void {
         const obj = this.scene.getObjects().find(o => o.id === this.objectId);
         if (!obj) return;
 
         if (obj.type === 'rect' || obj.type === 'image') {
-            (obj as any).width = this.oldSize.width;
-            (obj as any).height = this.oldSize.height;
+            if (size.width !== undefined) obj.width = size.width;
+            if (size.height !== undefined) obj.height = size.height;
         } else if (obj.type === 'circle') {
-            (obj as any).radius = this.oldSize.radius;
+            if (size.radius !== undefined) obj.radius = size.radius;
         }
-        obj.x = this.oldSize.x;
-        obj.y = this.oldSize.y;
+        obj.x = size.x;
+        obj.y = size.y;
     }
 
     getDescription(): string {
