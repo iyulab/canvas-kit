@@ -156,6 +156,7 @@ integration point if you need to build a custom renderer for another framework.
 ## 📖 Documentation
 
 - [Architecture Guide](docs/ARCHITECTURE.md) - System design and principles
+- Changelogs: [core](packages/core/CHANGELOG.md) · [viewer](packages/viewer/CHANGELOG.md) · [designer](packages/designer/CHANGELOG.md)
 - [Live Demo](https://iyulab.github.io/canvas-kit) - Interactive samples for every feature
 
 ## 🚀 Development
@@ -173,7 +174,7 @@ pnpm test
 # Build packages
 pnpm build:all
 
-# Everything CI runs on the code (build, type-check, tests)
+# Everything CI runs on the code (lint, build, published type declarations, type-check, tests)
 pnpm check
 
 # Dependencies behind their published versions
@@ -184,6 +185,10 @@ CI also fails when a dependency falls behind: an in-range gap of two or more min
 breaking release — a new major, or below 1.0 a new minor — that is neither adopted nor recorded in
 [`dependency-deferrals.json`](dependency-deferrals.json) with a reason and a review date (the check
 fails again once that date passes). It runs on every push and weekly.
+
+Each package keeps a `CHANGELOG.md` in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
+format. A change its consumers can notice adds an entry under `## [Unreleased]` in the same commit —
+breaking changes say how to migrate — and a release renames that section to the version and date.
 
 ## 📈 Performance
 
