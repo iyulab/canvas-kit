@@ -56,7 +56,8 @@ DrawingObject = Rect | Circle | Text | Path | Line
 모든 타입은 `packages/core/src/types.ts`에 정의. `id?`, `x`, `y`, `fill?`, `stroke?`, `strokeWidth?`를 공유 속성으로 가짐.
 
 **좌표 의미는 렌더러마다 같다**(`CanvasKitRenderer`의 Canvas 2D와 designer의 Konva): `rect`/`image`는 `x`/`y`가 좌상단, `circle`은 중심,
-`text`는 텍스트 상자의 좌상단(높이 = `fontSize` 한 줄), `line`/`path`의 `points`는 `x`/`y` 기준 상대좌표(이동 = `x`/`y` 변경). 채우기·선 기본값
+`text`는 `y`가 텍스트 상자 상단(높이 = `fontSize` 한 줄)이고 `x`는 `align`에 따라 상자의 왼쪽·가운데·오른쪽, `line`/`path`의 `points`는 `x`/`y` 기준 상대좌표(이동 = `x`/`y` 변경).
+`path` 윤곽은 `tracePath` 하나로 그린다(designer는 Konva `Shape`의 `sceneFunc`에서 같은 함수를 호출). 채우기·선 기본값
 (`DEFAULT_TEXT_FILL`·`DEFAULT_LINE_STROKE`·`DEFAULT_LINE_WIDTH`)도 한 곳에서 정의해 두 렌더러가 같은 문서를 같게 그린다. 바운딩 박스·hit test·영역 선택은
 전부 `geometry.ts` 하나를 쓴다.
 
@@ -124,6 +125,7 @@ packages/
 │   ├── scene.ts        — Scene 클래스
 │   ├── renderer.ts     — CanvasKitRenderer
 │   ├── geometry.ts     — 객체 기하(박스·포함·영역 판정)와 렌더 기본값
+│   ├── trace-path.ts   — path 윤곽 그리기(모든 렌더러 공용)
 │   ├── hit-test.ts     — HitTest
 │   ├── selection.ts    — SelectionManager, SelectionUtils
 │   ├── transform.ts    — viewToScene/sceneToView, fitTransform, zoomAt (뷰 transform 좌표 계산)

@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Scene } from '@canvas-kit/core';
+import { Scene, tracePath, textBoxOffsetX } from '@canvas-kit/core';
 import { KonvaDesigner } from './KonvaDesigner';
 import '@testing-library/jest-dom/vitest';
 
@@ -26,6 +26,17 @@ vi.mock('react-konva', () => ({
     Text: (props: any) => (
         <div data-testid="konva-text" data-props={JSON.stringify(props)} />
     ),
+    // Runs the shape's sceneFunc against a recording context, so a test can see what it draws.
+    Shape: ({ sceneFunc, ...props }: any) => {
+        const calls: unknown[][] = [];
+        const record = (name: string) => (...args: unknown[]) => { calls.push([name, ...args]); };
+        sceneFunc({
+            beginPath: record('beginPath'), moveTo: record('moveTo'), lineTo: record('lineTo'),
+            quadraticCurveTo: record('quadraticCurveTo'), closePath: record('closePath'),
+            fillStrokeShape: record('fillStrokeShape'),
+        }, {});
+        return <div data-testid="konva-shape" data-props={JSON.stringify(props)} data-calls={JSON.stringify(calls)} />;
+    },
     Image: (props: any) => (
         <div data-testid="konva-image" data-props={JSON.stringify({ ...props, image: undefined })} />
     ),
@@ -93,6 +104,32 @@ describe('KonvaDesigner', () => {
         expect(screen.getByTestId('konva-rect')).toBeInTheDocument();
         expect(screen.getByTestId('konva-circle')).toBeInTheDocument();
         expect(screen.getByTestId('konva-transformer')).toBeInTheDocument();
+    });
+
+    it('renders a path through the same tracePath the canvas renderer uses, offset by x/y', () => {
+        const path = { id: 'p1', type: 'path' as const, x: 30, y: 40, points: [0, 0, 20, 10, 40, 0], tension: 0.5, closed: true, fill: 'teal', stroke: 'black', strokeWidth: 2 };
+        scene.add(path);
+
+        render(<KonvaDesigner width={800} height={600} scene={scene} />);
+
+        const node = screen.getByTestId('konva-shape');
+        expect(JSON.parse(node.getAttribute('data-props')!)).toMatchObject({ id: 'p1', x: 30, y: 40, fill: 'teal', stroke: 'black', strokeWidth: 2 });
+        const expected: unknown[][] = [];
+        const record = (name: string) => (...args: unknown[]) => { expected.push([name, ...args]); };
+        tracePath({ beginPath: record('beginPath'), moveTo: record('moveTo'), lineTo: record('lineTo'), quadraticCurveTo: record('quadraticCurveTo'), closePath: record('closePath') }, path);
+        expect(JSON.parse(node.getAttribute('data-calls')!)).toEqual([...expected, ['fillStrokeShape', {}]]);
+    });
+
+    it('anchors aligned text at x, as the canvas renderer does', () => {
+        const text = { id: 't1', type: 'text' as const, x: 100, y: 10, text: 'Centered', align: 'center' as const };
+        scene.add(text);
+
+        render(<KonvaDesigner width={800} height={600} scene={scene} />);
+
+        const props = JSON.parse(screen.getByTestId('konva-text').getAttribute('data-props')!);
+        expect(props.x).toBe(100);
+        expect(props.offsetX).toBeGreaterThan(0);
+        expect(props.offsetX).toBe(textBoxOffsetX(text));
     });
 
     it('renders an image object as a Konva Image, positioned like other shapes', () => {

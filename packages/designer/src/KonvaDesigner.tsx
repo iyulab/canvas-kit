@@ -1,9 +1,10 @@
 import React, { useRef, useEffect, useState, useCallback, useLayoutEffect, useReducer, forwardRef, useImperativeHandle } from 'react';
-import { Stage, Layer, Rect, Circle, Line, Text, Image as KonvaImage, Transformer } from 'react-konva';
+import { Stage, Layer, Rect, Circle, Line, Text, Shape, Image as KonvaImage, Transformer } from 'react-konva';
 import {
     DrawingObject, Scene, defaultImageLoader, CommandHistory, MoveCommand, ResizeCommand,
     IDENTITY_TRANSFORM, fitTransform, zoomAt,
-    DEFAULT_LINE_STROKE, DEFAULT_LINE_WIDTH, DEFAULT_TEXT_FILL,
+    DEFAULT_LINE_STROKE, DEFAULT_LINE_WIDTH, DEFAULT_TEXT_FILL, DEFAULT_FONT_SIZE, DEFAULT_FONT_FAMILY,
+    textBoxOffsetX, tracePath,
 } from '@canvas-kit/core';
 import type { Image as ImageShape, Transform, Rect as SceneRect, Size, ResizeGeometry } from '@canvas-kit/core';
 import type Konva from 'konva';
@@ -407,15 +408,32 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
                         strokeWidth={obj.strokeWidth || DEFAULT_LINE_WIDTH}
                     />
                 );
+            case 'path':
+                // Drawn by the same tracePath the canvas renderer uses, so curves match exactly.
+                return (
+                    <Shape
+                        key={obj.id}
+                        {...commonProps}
+                        sceneFunc={(context, shape) => {
+                            tracePath(context, obj);
+                            context.fillStrokeShape(shape);
+                        }}
+                        fill={obj.closed ? obj.fill : undefined}
+                        stroke={isSelected ? '#0080ff' : obj.strokeWidth ? obj.stroke : undefined}
+                        strokeWidth={isSelected ? 2 : obj.strokeWidth || 0}
+                    />
+                );
             case 'text':
                 return (
                     <Text
                         key={obj.id}
                         {...commonProps}
+                        // x is the alignment anchor (geometry.ts), as on the canvas renderer.
+                        offsetX={textBoxOffsetX(obj)}
                         text={obj.text}
-                        fontSize={obj.fontSize || 16}
+                        fontSize={obj.fontSize ?? DEFAULT_FONT_SIZE}
                         fill={obj.fill || DEFAULT_TEXT_FILL}
-                        fontFamily={obj.fontFamily || 'Arial'}
+                        fontFamily={obj.fontFamily ?? DEFAULT_FONT_FAMILY}
                         stroke={isSelected ? '#0080ff' : obj.stroke}
                         strokeWidth={isSelected ? 1 : obj.strokeWidth || 0}
                     />

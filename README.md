@@ -113,10 +113,11 @@ Object geometry is the same in every renderer, and `getObjectBounds`, `containsP
 `isObjectInsideRect` and `isObjectIntersectingRect` compute it for you:
 
 - `rect` / `image`: `x`/`y` is the top-left corner. `circle`: `x`/`y` is the center.
-- `text`: `x`/`y` is the top-left of the text box (one `fontSize` line tall); without `fill` it is
-  drawn black.
+- `text`: `y` is the top of the text box (one `fontSize` line tall) and `x` its left edge, middle or
+  right edge as `align` says; without `fill` it is drawn black.
 - `line` / `path`: `points` are relative to `x`/`y`, so moving the object moves the whole polyline.
-  A line without `stroke`/`strokeWidth` is drawn black, 1px wide.
+  A line without `stroke`/`strokeWidth` is drawn black, 1px wide. Paths are traced by one shared
+  function (`tracePath`), so a smoothed (`tension`) or `closed` path has the same outline everywhere.
 
 ## 🎨 What You Can Build
 

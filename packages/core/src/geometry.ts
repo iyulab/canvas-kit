@@ -41,6 +41,13 @@ export function measureTextWidth(text: Text): number {
     return text.text.length * fontSize * 0.6;
 }
 
+/** How far a text box's left edge sits left of the text's `x`: `x` is the alignment anchor — the
+ * box's left edge for `left` (the default), its middle for `center`, its right edge for `right`. */
+export function textBoxOffsetX(text: Text): number {
+    const ratio = text.align === 'center' ? 0.5 : text.align === 'right' ? 1 : 0;
+    return ratio === 0 ? 0 : measureTextWidth(text) * ratio;
+}
+
 /** A line's or path's points in scene coordinates: `points` are relative to the object's `x`/`y`,
  * so moving the object moves the whole polyline. */
 export function polylinePoints(obj: { x: number; y: number; points: readonly number[] }): number[] {
@@ -52,7 +59,8 @@ export function polylinePoints(obj: { x: number; y: number; points: readonly num
  *
  * - `rect` / `image`: `x`/`y` is the top-left corner.
  * - `circle`: `x`/`y` is the center.
- * - `text`: `x`/`y` is the top-left of the text box; the box is one line of `fontSize` height.
+ * - `text`: `y` is the top of the text box (one line of `fontSize` height); `x` is its left edge,
+ *   middle or right edge as `align` says (`textBoxOffsetX`).
  * - `line` / `path`: the extent of the points, offset by `x`/`y`. No points → an empty box at `x`/`y`.
  */
 export function getObjectBounds(obj: DrawingObject): BoundingBox {
@@ -62,8 +70,10 @@ export function getObjectBounds(obj: DrawingObject): BoundingBox {
             return { x: obj.x, y: obj.y, width: obj.width, height: obj.height };
         case 'circle':
             return { x: obj.x - obj.radius, y: obj.y - obj.radius, width: obj.radius * 2, height: obj.radius * 2 };
-        case 'text':
-            return { x: obj.x, y: obj.y, width: measureTextWidth(obj), height: obj.fontSize ?? DEFAULT_FONT_SIZE };
+        case 'text': {
+            const width = measureTextWidth(obj);
+            return { x: obj.x - textBoxOffsetX(obj), y: obj.y, width, height: obj.fontSize ?? DEFAULT_FONT_SIZE };
+        }
         case 'line':
         case 'path': {
             const points = polylinePoints(obj);

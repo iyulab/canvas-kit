@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { getObjectBounds, containsPoint, isObjectInsideRect, isObjectIntersectingRect, polylinePoints } from './geometry';
+import { getObjectBounds, containsPoint, isObjectInsideRect, isObjectIntersectingRect, polylinePoints, textBoxOffsetX } from './geometry';
+import { tracePath } from './trace-path';
 import { SelectionManager, SelectionUtils } from './selection';
 import { HitTest } from './hit-test';
 import type { DrawingObject } from './types';
@@ -68,5 +69,49 @@ describe('one geometry for hit testing and selection', () => {
         // The rect touches the circle's bounding-box corner but not the circle itself.
         expect(isObjectIntersectingRect(circle, { x: 8, y: 8, width: 5, height: 5 })).toBe(false);
         expect(isObjectIntersectingRect(circle, { x: 5, y: -2, width: 10, height: 4 })).toBe(true);
+    });
+});
+
+describe('text alignment', () => {
+    it('anchors the text box at x by align: left edge, middle or right edge', () => {
+        const base = { type: 'text' as const, x: 100, y: 0, text: 'Hello', fontSize: 10 };
+        const width = getObjectBounds(base).width;
+        expect(width).toBeGreaterThan(0);
+        expect(getObjectBounds({ ...base, align: 'left' }).x).toBe(100);
+        expect(getObjectBounds({ ...base, align: 'center' }).x).toBeCloseTo(100 - width / 2);
+        expect(getObjectBounds({ ...base, align: 'right' }).x).toBeCloseTo(100 - width);
+        expect(textBoxOffsetX({ ...base, align: 'right' })).toBeCloseTo(width);
+    });
+
+    it('hits right-aligned text to the left of x, not to the right', () => {
+        const text: DrawingObject = { type: 'text', x: 100, y: 0, text: 'Hello', fontSize: 10, align: 'right' };
+        expect(containsPoint(text, 99, 5)).toBe(true);
+        expect(containsPoint(text, 101, 5)).toBe(false);
+    });
+});
+
+describe('tracePath', () => {
+    function trace(path: Parameters<typeof tracePath>[1]) {
+        const calls: unknown[][] = [];
+        const record = (name: string) => (...args: unknown[]) => { calls.push([name, ...args]); };
+        tracePath({ beginPath: record('beginPath'), moveTo: record('moveTo'), lineTo: record('lineTo'), quadraticCurveTo: record('quadraticCurveTo'), closePath: record('closePath') }, path);
+        return calls;
+    }
+
+    it('builds straight segments without tension', () => {
+        expect(trace({ points: [0, 0, 10, 0, 10, 10] })).toEqual([['beginPath'], ['moveTo', 0, 0], ['lineTo', 10, 0], ['lineTo', 10, 10]]);
+    });
+
+    it('curves through segment midpoints with tension, and closes when asked', () => {
+        expect(trace({ points: [0, 0, 10, 0, 10, 10], tension: 0.5, closed: true })).toEqual([
+            ['beginPath'], ['moveTo', 0, 0],
+            ['quadraticCurveTo', 10, 0, 10, 5],
+            ['quadraticCurveTo', 10, 0, 10, 10],
+            ['closePath'],
+        ]);
+    });
+
+    it('builds nothing for fewer than two points', () => {
+        expect(trace({ points: [1, 1] })).toEqual([]);
     });
 });

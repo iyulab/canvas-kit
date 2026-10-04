@@ -4,6 +4,7 @@ import { IDENTITY_TRANSFORM } from './types';
 import type { ImageLoader } from './image-loader';
 import { defaultImageLoader } from './image-loader';
 import { DEFAULT_FONT_FAMILY, DEFAULT_FONT_SIZE, DEFAULT_LINE_STROKE, DEFAULT_LINE_WIDTH, DEFAULT_TEXT_FILL } from './geometry';
+import { tracePath } from './trace-path';
 
 export interface CanvasKitRendererOptions {
     /** Image loads are async; called once an image referenced by a rendered scene finishes
@@ -149,33 +150,7 @@ export class CanvasKitRenderer {
         // points are relative to the object's x/y (geometry.ts).
         this.ctx.save();
         this.ctx.translate(path.x, path.y);
-        this.ctx.beginPath();
-        this.ctx.moveTo(path.points[0], path.points[1]);
-
-        if (path.tension && path.tension > 0) {
-            for (let i = 2; i < path.points.length - 2; i += 2) {
-                const xc = (path.points[i] + path.points[i + 2]) / 2;
-                const yc = (path.points[i + 1] + path.points[i + 3]) / 2;
-                this.ctx.quadraticCurveTo(path.points[i], path.points[i + 1], xc, yc);
-            }
-            if (path.points.length >= 4) {
-                const lastIndex = path.points.length - 2;
-                this.ctx.quadraticCurveTo(
-                    path.points[lastIndex - 2],
-                    path.points[lastIndex - 1],
-                    path.points[lastIndex],
-                    path.points[lastIndex + 1]
-                );
-            }
-        } else {
-            for (let i = 2; i < path.points.length; i += 2) {
-                this.ctx.lineTo(path.points[i], path.points[i + 1]);
-            }
-        }
-
-        if (path.closed) {
-            this.ctx.closePath();
-        }
+        tracePath(this.ctx, path);
 
         if (path.fill && path.closed) {
             this.ctx.fillStyle = path.fill;
