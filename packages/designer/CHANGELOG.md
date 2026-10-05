@@ -6,6 +6,8 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-05
+
 ### Added
 
 - The viewer's viewport contract for `KonvaDesigner`: omit `width`/`height` and it follows its

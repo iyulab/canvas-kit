@@ -6,6 +6,8 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-05
+
 ### Changed — breaking
 
 - Scenes render with `@canvas-kit/core`'s shared geometry: text `y` is the top of the text box
