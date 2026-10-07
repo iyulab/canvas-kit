@@ -348,6 +348,28 @@ describe('Viewer', () => {
       expect(onTap).not.toHaveBeenCalled();
     });
 
+    it("reports taps on a display-only overlay (interactive: false) as the viewer's own, and lets the pointer through it", () => {
+      const onTap = vi.fn();
+      render(
+        <Viewer
+          width={200}
+          height={200}
+          onTap={onTap}
+          overlays={[
+            { id: 'drawing', x: 0, y: 0, width: 200, height: 200, interactive: false, content: <svg data-testid="drawing-svg" /> },
+          ]}
+        />
+      );
+
+      expect(screen.getByTestId('overlay-drawing').style.pointerEvents).toBe('none');
+      const drawing = screen.getByTestId('drawing-svg');
+      fireEvent.pointerDown(drawing, { clientX: 30, clientY: 40, pointerId: 1 });
+      fireEvent.pointerUp(drawing, { clientX: 30, clientY: 40, pointerId: 1 });
+
+      expect(onTap).toHaveBeenCalledTimes(1);
+      expect(onTap.mock.calls[0][0]).toMatchObject({ scene: { x: 30, y: 40 } });
+    });
+
     // 누르는 순간 캡처하면 브라우저가 click 대상을 컨테이너로 바꿔 오버레이 아이템의 click이 죽는다 —
     // 캡처는 팬이 실제로 시작될 때만.
     it('captures the pointer only once a pan starts, so presses on overlay items still click', () => {

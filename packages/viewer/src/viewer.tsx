@@ -33,6 +33,13 @@ const OVERLAY_ATTRIBUTE = 'data-ck-overlay';
 // UI 프레임워크에 의존하므로 여기(viewer)에서 React 노드로 확장한다.
 export interface ViewerOverlayItem extends OverlayItem {
   content: React.ReactNode;
+  /**
+   * Whether the item takes the pointer. Default `true`: presses on it are its own — a button, a
+   * widget with a tooltip — and not reported as taps. `false` for content that is only shown (a
+   * drawing laid under the scene, a label, a watermark, a heatmap): the pointer passes through it,
+   * so a press on it is the viewer's — a tap, the start of a pan — as if it were not there.
+   */
+  interactive?: boolean;
 }
 
 export type { Transform };
@@ -103,7 +110,8 @@ export interface ViewerProps {
   overlays?: ViewerOverlayItem[];
   /**
    * Called when the pointer is pressed and released without moving past `tapThreshold`.
-   * Presses that start on an overlay item are left to that item and not reported here.
+   * Presses that start on an overlay item are left to that item and not reported here — unless the
+   * item is display-only (`interactive: false`).
    */
   onTap?: (event: ViewerTapEvent) => void;
   /** Movement (CSS px) below which a press counts as a tap rather than a pan. Default 4. */
@@ -430,23 +438,28 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
           pointerEvents: 'none',
         }}
       >
-        {overlays.map(overlay => (
-          <div
-            key={overlay.id}
-            data-testid={`overlay-${overlay.id}`}
-            {...{ [OVERLAY_ATTRIBUTE]: '' }}
-            style={{
-              position: 'absolute',
-              left: overlay.x,
-              top: overlay.y,
-              width: overlay.width,
-              height: overlay.height,
-              pointerEvents: 'auto',
-            }}
-          >
-            {overlay.content}
-          </div>
-        ))}
+        {overlays.map(overlay => {
+          const interactive = overlay.interactive ?? true;
+          return (
+            <div
+              key={overlay.id}
+              data-testid={`overlay-${overlay.id}`}
+              // Only an interactive item claims the presses that start on it; a display-only one is
+              // also unmarked, so a press its content does receive still counts as the viewer's.
+              {...(interactive && { [OVERLAY_ATTRIBUTE]: '' })}
+              style={{
+                position: 'absolute',
+                left: overlay.x,
+                top: overlay.y,
+                width: overlay.width,
+                height: overlay.height,
+                pointerEvents: interactive ? 'auto' : 'none',
+              }}
+            >
+              {overlay.content}
+            </div>
+          );
+        })}
       </div>
       {/* 크롬(테두리)은 레이아웃에 끼지 않는 맨 위 레이어 — 캔버스 크기를 바꾸지 않고 포인터도 통과시킨다. */}
       <div

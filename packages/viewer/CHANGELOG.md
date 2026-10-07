@@ -6,6 +6,12 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `ViewerOverlayItem.interactive` (default `true`). `false` marks an overlay as display-only — a
+  drawing laid under the scene, a label, a watermark: the pointer passes through it, so a press on it
+  is the viewer's (a tap reported to `onTap`, the start of a pan) instead of being left to the item.
+
 ## [0.4.0] - 2026-10-05
 
 ### Changed — breaking

@@ -83,7 +83,9 @@ import { Viewer } from '@canvas-kit/viewer';
 - **Keyboard** — the viewer is focusable (`ariaLabel` names it): arrow keys pan (Shift for a
   larger step) and `+`/`-` zoom around the middle. Keys typed inside an overlay item are left alone.
 - **Taps** — `onTap` fires for a press and release that stays within `tapThreshold` (default
-  4px), with the point in scene coordinates. Presses on overlay items are left to the items.
+  4px), with the point in scene coordinates. Presses on overlay items are left to the items —
+  except on an item marked `interactive: false`, display-only content (a drawing laid under the
+  scene, a label) that the pointer passes through.
 - **Fit to a region** — `ref.current.fitToRect(rect, { padding, maxScale })` through a
   `ViewerHandle` ref (`maxScale: 1` shrinks to fit without magnifying), or compute it yourself
   with the pure `fitTransform(viewport, rect, options)`. A fit asked for before a container-sized
