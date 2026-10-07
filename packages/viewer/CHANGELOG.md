@@ -6,6 +6,8 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-07
+
 ### Added
 
 - `ViewerOverlayItem.interactive` (default `true`). `false` marks an overlay as display-only — a
