@@ -92,6 +92,8 @@ CommandHistory는 `addEventListener/removeEventListener`로 상태 변경을 외
 | `EditableText` | 인라인 텍스트 편집 |
 | `SimpleSelectionDemo` | 선택 시스템 데모 컴포넌트 |
 
+**잠긴 도형**(`locked: true`, 모든 도형 공통)은 designer가 그리기만 하고 편집하지 않는다 — 포인터 이벤트를 받지 않아(Konva `listening: false`) 그 위를 누르면 빈 곳을 누른 것(상자 선택·선택 해제)이고, 상자 선택·Tab·화살표 이동·Transformer에서 빠지며, 이미 선택돼 있다가 새 장면에서 잠기면 선택에서 나간다. 편집 대상이 올라앉는 바탕(도면·지도)이나 편집 대상에서 파생된 표시에 쓴다. viewer와 `CanvasKitRenderer`는 다른 도형처럼 그린다.
+
 ### AdvancedDesigner 도구 동작
 
 | 도구 | 동작 | 단축키 |
