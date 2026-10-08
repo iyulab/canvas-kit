@@ -6,6 +6,9 @@ export interface Shape {
   stroke?: string;
   strokeWidth?: number;
   type: string;
+  /** Drawn, but not edited: a designer never selects, drags, transforms or steps to it — the picture
+   * the editable shapes sit on (a floor plan, a map) or a mark derived from them. Viewers ignore it. */
+  locked?: boolean;
 }
 
 export interface Rect extends Shape {

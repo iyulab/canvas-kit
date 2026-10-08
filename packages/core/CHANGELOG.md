@@ -6,6 +6,12 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `Shape.locked` (optional, every shape type): the shape is drawn but not edited — a designer never
+  selects, drags, transforms or steps to it. For the picture the editable shapes sit on (a floor plan,
+  a map) and for marks derived from them. Viewers draw it as any other shape.
+
 ## [0.4.0] - 2026-10-05
 
 ### Changed — breaking

@@ -273,7 +273,7 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
             if (!pan && moved) {
                 const box = rectBetween(toScene(startX, startY), toScene(ev.clientX, ev.clientY));
                 const hit = scene.getObjects()
-                    .filter(obj => obj.id && isObjectIntersectingRect(obj, box))
+                    .filter(obj => obj.id && !obj.locked && isObjectIntersectingRect(obj, box))
                     .map(obj => obj.id!);
                 setSelectedIds(prev => (additive ? [...new Set([...prev, ...hit])] : hit));
             } else if (!pan && !additive) {
@@ -323,7 +323,7 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
         } else if (e.key === 'Tab') {
             // Tab and Shift+Tab step through the shapes in drawing order. Past the last (or before the
             // first) the key is left alone, so focus moves on out of the designer (no keyboard trap).
-            const ids = scene.getObjects().map(obj => obj.id).filter((id): id is string => !!id);
+            const ids = scene.getObjects().filter(obj => !obj.locked).map(obj => obj.id).filter((id): id is string => !!id);
             const current = selected.length > 0 ? ids.indexOf(selected[selected.length - 1]) : -1;
             const next = current === -1 ? (e.shiftKey ? ids.length - 1 : 0) : current + (e.shiftKey ? -1 : 1);
             if (ids.length === 0 || next < 0 || next >= ids.length) {
@@ -474,7 +474,10 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
             id: obj.id,
             x: obj.x,
             y: obj.y,
-            draggable: !spaceHeld,
+            // A locked shape takes no pointer events at all: a press on it is a press on empty space
+            // (a marquee, or deselecting), as if only the picture were there.
+            listening: !obj.locked,
+            draggable: !spaceHeld && !obj.locked,
             onDragEnd: handleObjectDragEnd,
             onTransformEnd: handleObjectTransformEnd,
         };
