@@ -1,6 +1,6 @@
 {
   "name": "@canvas-kit/designer",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Complete canvas editor UI powered by Konva.js",
   "repository": {
     "type": "git",

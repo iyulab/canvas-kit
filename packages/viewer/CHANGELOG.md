@@ -6,6 +6,13 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-08
+
+### Changed
+
+- Built against `@canvas-kit/core` 0.5.0, which adds `Shape.locked`; the viewer draws a locked shape
+  like any other.
+
 ## [0.5.0] - 2026-10-07
 
 ### Added

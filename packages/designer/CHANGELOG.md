@@ -6,11 +6,14 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-08
+
 ### Added
 
 - `KonvaDesigner` honours `Shape.locked`: a locked shape takes no pointer events and cannot be
   dragged — a press on it is a press on empty space (a box selection, or clearing the selection) —
-  and box selection and Tab leave it out.
+  and box selection, Tab, the arrow keys and the transformer leave it out; a selected shape that a new
+  scene locks leaves the selection.
 
 ## [0.5.0] - 2026-10-05
 
