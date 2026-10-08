@@ -198,6 +198,8 @@ fails again once that date passes). It runs on every push and weekly.
 Each package keeps a `CHANGELOG.md` in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 format. A change its consumers can notice adds an entry under `## [Unreleased]` in the same commit —
 breaking changes say how to migrate — and a release renames that section to the version and date.
+That release commit, once it passes CI on `main`, is what publishes: CI publishes each package whose
+version is not on npm yet, with provenance. A version without its own changelog section fails CI.
 
 ## 📈 Performance
 

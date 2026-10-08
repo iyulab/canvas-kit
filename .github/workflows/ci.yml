@@ -15,15 +15,21 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # By hand on main: finishes a release whose run cannot be re-run. Publishing stays as safe as on a
+  # push — it only ever publishes versions npm does not have yet.
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Superseded PR runs are cancelled; runs on main are not, because a run on main may be in the
+  # middle of the `publish` job below.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   verify:
     name: verify
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v7
@@ -67,3 +73,67 @@ jobs:
 
       - name: Test (all packages)
         run: pnpm test:packages
+
+  # Releasing is a commit on main that bumps a package's version and renames its `## [Unreleased]`
+  # changelog section to that version (scripts/changelog-versions.test.mjs holds the two together).
+  # Once that commit passes `verify`, this job publishes every package whose version npm does not
+  # have yet — core first, since viewer and designer depend on the core version they were built with.
+  publish:
+    name: publish
+    needs: verify
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      # Required for npm provenance (NPM_CONFIG_PROVENANCE below).
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      - name: Find versions not yet on npm
+        id: pending
+        run: |
+          pending=""
+          for dir in core viewer designer; do
+            name=$(node -p "require('./packages/${dir}/package.json').name")
+            version=$(node -p "require('./packages/${dir}/package.json').version")
+            if npm view "${name}@${version}" version >/dev/null 2>&1; then
+              echo "- \`${name}@${version}\` — already published" >> "$GITHUB_STEP_SUMMARY"
+            else
+              pending="${pending} ${dir}"
+            fi
+          done
+          echo "dirs=${pending# }" >> "$GITHUB_OUTPUT"
+
+      - name: Install
+        if: steps.pending.outputs.dirs != ''
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        if: steps.pending.outputs.dirs != ''
+        run: pnpm --filter "@canvas-kit/*" build
+
+      # pnpm rewrites `workspace:*` to the exact core version in the published manifest.
+      - name: Publish
+        if: steps.pending.outputs.dirs != ''
+        env:
+          DIRS: ${{ steps.pending.outputs.dirs }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "true"
+        run: |
+          for dir in ${DIRS}; do
+            name=$(node -p "require('./packages/${dir}/package.json').name")
+            version=$(node -p "require('./packages/${dir}/package.json').version")
+            pnpm --filter "${name}" publish --no-git-checks
+            echo "- \`${name}@${version}\` — published" >> "$GITHUB_STEP_SUMMARY"
+          done

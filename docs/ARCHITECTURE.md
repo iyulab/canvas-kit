@@ -179,8 +179,9 @@ tsup이 ESM (.mjs) + CJS (.js) + 타입 정의 (.d.ts)를 생성. `dist/`를 npm
 
 ## NPM Publishing
 
-```bash
-# GitHub Actions: .github/workflows/publish-npm.yml
-# 수동 트리거 (workflow_dispatch)
-# NPM_TOKEN secret 필요
-```
+릴리스는 `main`에 올리는 커밋 하나다 — 패키지 `version`을 올리고 그 패키지 `CHANGELOG.md`의
+`## [Unreleased]`를 그 버전과 날짜로 바꾼다(`scripts/changelog-versions.test.mjs`가 둘을 함께 묶는다).
+그 커밋이 CI `verify`를 통과하면 같은 워크플로(`.github/workflows/ci.yml`)의 `publish` 잡이 npm에 아직
+없는 버전만 게시한다 — core 먼저, 그다음 viewer·designer(`workspace:*`는 게시 시 정확한 core 버전으로
+바뀐다). 게시본에는 npm provenance가 붙는다. 저장소 시크릿 `NPM_TOKEN`이 필요하다. 실행이 재시도되지
+않으면 Actions에서 CI를 `main`에 수동 실행(`workflow_dispatch`)한다 — 이미 있는 버전은 건너뛴다.
