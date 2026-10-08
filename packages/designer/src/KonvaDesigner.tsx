@@ -306,7 +306,7 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
         if (direction && selected.length > 0) {
             const step = e.shiftKey ? KEY_NUDGE_FAST : 1;
             const moves = scene.getObjects()
-                .filter(obj => obj.id && selected.includes(obj.id))
+                .filter(obj => obj.id && !obj.locked && selected.includes(obj.id))
                 .map(obj => new MoveCommand(obj, { x: obj.x, y: obj.y }, { x: obj.x + direction[0] * step, y: obj.y + direction[1] * step }, scene));
             if (moves.length > 0) history.execute(moves.length === 1 ? moves[0] : new CompositeCommand(moves, `Move ${moves.length} objects`));
         } else if (direction) {
@@ -376,9 +376,20 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
 
         if (!transformer || !stage) return;
 
-        const selectedNodes = selectedIds.map(id => stage.findOne(`#${id}`)).filter((node): node is Konva.Node => node !== undefined);
+        const locked = new Set(scene.getObjects().filter(obj => obj.locked).map(obj => obj.id));
+        const selectedNodes = selectedIds
+            .filter(id => !locked.has(id))
+            .map(id => stage.findOne(`#${id}`))
+            .filter((node): node is Konva.Node => node !== undefined);
         transformer.nodes(selectedNodes);
-    }, [selectedIds]);
+    }, [selectedIds, scene]);
+
+    // A scene in which a selected shape is now locked: it leaves the selection, as it could not be
+    // selected in the first place.
+    useEffect(() => {
+        const locked = new Set(scene.getObjects().filter(obj => obj.locked).map(obj => obj.id));
+        if (selectedIdsRef.current.some(id => locked.has(id))) setSelectedIds(prev => prev.filter(id => !locked.has(id)));
+    }, [scene]);
 
     // Stable ref for onSelectionChange — avoids infinite re-render loop
     // when callers pass a non-memoized callback

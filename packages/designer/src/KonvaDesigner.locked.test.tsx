@@ -66,6 +66,23 @@ describe('KonvaDesigner locked shapes', () => {
         expect(lastSelection(onSelectionChange)).toEqual(['pump']);
     });
 
+    it('lets go of a selected shape that a new scene locks, and the arrows no longer move it', () => {
+        const onSelectionChange = vi.fn();
+        const editable = new Scene();
+        editable.add({ id: 'pump', type: 'rect', x: 50, y: 50, width: 40, height: 20 });
+        const { rerender } = render(<KonvaDesigner width={400} height={300} scene={editable} onSelectionChange={onSelectionChange} />);
+        const region = screen.getByRole('region', { name: 'Designer' });
+        fireEvent.keyDown(region, { key: 'Tab' });
+        expect(lastSelection(onSelectionChange)).toEqual(['pump']);
+
+        const lockedScene = new Scene();
+        lockedScene.add({ id: 'pump', type: 'rect', x: 50, y: 50, width: 40, height: 20, locked: true });
+        rerender(<KonvaDesigner width={400} height={300} scene={lockedScene} onSelectionChange={onSelectionChange} />);
+        expect(lastSelection(onSelectionChange)).toEqual([]);
+        fireEvent.keyDown(region, { key: 'ArrowRight' });
+        expect(lockedScene.getObjects()[0]).toMatchObject({ x: 50, y: 50 });
+    });
+
     it('steps over them with Tab', () => {
         const onSelectionChange = vi.fn();
         render(<KonvaDesigner width={400} height={300} scene={plan()} onSelectionChange={onSelectionChange} />);
