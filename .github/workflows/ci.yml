@@ -100,6 +100,8 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: pnpm
 
+      # Only npm's 404 means "not published yet"; any other failure (registry down, rate limit) stops
+      # here instead of trying to publish a version that may already exist.
       - name: Find versions not yet on npm
         id: pending
         run: |
@@ -107,10 +109,14 @@ jobs:
           for dir in core viewer designer; do
             name=$(node -p "require('./packages/${dir}/package.json').name")
             version=$(node -p "require('./packages/${dir}/package.json').version")
-            if npm view "${name}@${version}" version >/dev/null 2>&1; then
+            if out=$(npm view "${name}@${version}" version 2>&1); then
               echo "- \`${name}@${version}\` — already published" >> "$GITHUB_STEP_SUMMARY"
-            else
+            elif grep -q E404 <<< "${out}"; then
               pending="${pending} ${dir}"
+            else
+              echo "${out}" >&2
+              echo "::error::Could not ask npm whether ${name}@${version} is published"
+              exit 1
             fi
           done
           echo "dirs=${pending# }" >> "$GITHUB_OUTPUT"
@@ -134,6 +140,8 @@ jobs:
           for dir in ${DIRS}; do
             name=$(node -p "require('./packages/${dir}/package.json').name")
             version=$(node -p "require('./packages/${dir}/package.json').version")
-            pnpm --filter "${name}" publish --no-git-checks
-            echo "- \`${name}@${version}\` — published" >> "$GITHUB_STEP_SUMMARY"
+            # A prerelease goes out under `next`, never as `latest` (npm refuses one without a tag).
+            case "${version}" in *-*) tag=next ;; *) tag=latest ;; esac
+            pnpm --filter "${name}" publish --no-git-checks --tag "${tag}"
+            echo "- \`${name}@${version}\` — published (${tag})" >> "$GITHUB_STEP_SUMMARY"
           done
