@@ -6,7 +6,7 @@ import {
     DEFAULT_LINE_STROKE, DEFAULT_LINE_WIDTH, DEFAULT_TEXT_FILL, DEFAULT_FONT_SIZE, DEFAULT_FONT_FAMILY,
     textBoxOffsetX, tracePath,
 } from '@canvas-kit/core';
-import type { Image as ImageShape, Transform, Rect as SceneRect, Size, ResizeGeometry } from '@canvas-kit/core';
+import type { Image as ImageShape, Transform, Rect as SceneRect, Size, ResizeGeometry, OverlayItem } from '@canvas-kit/core';
 import type Konva from 'konva';
 
 const DEFAULT_MIN_SCALE = 0.1;
@@ -104,6 +104,18 @@ export interface DesignerHandle {
     fitToRect(rect: SceneRect, options?: FitToRectOptions): void;
 }
 
+/** DOM content placed in scene coordinates over the design — it pans and zooms with the shapes. */
+export interface DesignerOverlayItem extends OverlayItem {
+    content: React.ReactNode;
+    /**
+     * Whether the item takes the pointer. Default `false`: on an editing surface what is laid over a
+     * shape is shown, not used — a press on it reaches the shape beneath, which is selected, dragged
+     * and resized as if the item were not there. `true` for a control the item itself must receive (a
+     * button); its presses and keys are then its own, not the designer's.
+     */
+    interactive?: boolean;
+}
+
 export interface KonvaDesignerProps {
     /**
      * Viewport size in CSS px. Omit either to follow the container's size along that axis — the
@@ -129,6 +141,12 @@ export interface KonvaDesignerProps {
     maxScale?: number;
     onSceneChange?: (scene: Scene) => void;
     onSelectionChange?: (selection: DrawingObject[]) => void;
+    /**
+     * DOM content in scene coordinates, drawn over the shapes and moved with the view — what a shape
+     * stands for (a widget, a label) shown where it is being edited. Display-only unless an item says
+     * otherwise (`interactive`).
+     */
+    overlays?: DesignerOverlayItem[];
     /** Accessible name of the designer — it is focusable, and operable from the keyboard: arrow keys
      * move the selection (Shift for ten units) or, with nothing selected, pan; `+`/`-` zoom; Tab and
      * Shift+Tab select the next or previous shape; Escape clears the selection; Space + drag pans.
@@ -158,6 +176,7 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
     maxScale = DEFAULT_MAX_SCALE,
     onSceneChange,
     onSelectionChange,
+    overlays = [],
     ariaLabel = 'Designer',
     commandHistory,
 }, ref) {
@@ -632,6 +651,46 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
                     )}
                 </Layer>
             </Stage>
+            <div
+                data-testid="designer-overlay-layer"
+                style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width,
+                    height,
+                    overflow: 'hidden',
+                    pointerEvents: 'none',
+                }}
+            >
+                {/* The same translate-then-scale from the origin the stage applies, so DOM and shapes agree. */}
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
+                        transformOrigin: '0 0',
+                    }}
+                >
+                    {overlays.map(overlay => (
+                        <div
+                            key={overlay.id}
+                            data-testid={`designer-overlay-${overlay.id}`}
+                            style={{
+                                position: 'absolute',
+                                left: overlay.x,
+                                top: overlay.y,
+                                width: overlay.width,
+                                height: overlay.height,
+                                pointerEvents: overlay.interactive ? 'auto' : 'none',
+                            }}
+                        >
+                            {overlay.content}
+                        </div>
+                    ))}
+                </div>
+            </div>
         </div>
     );
 });

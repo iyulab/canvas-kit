@@ -6,6 +6,14 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `KonvaDesigner` `overlays` (`DesignerOverlayItem[]`): DOM content in scene coordinates over the shapes, panned
+  and zoomed with them — the viewer's overlay contract, so an editor can show what a shape stands for (a widget,
+  a label) where it is edited. An item is display-only by default (`interactive: false`): the pointer passes
+  through to the shape beneath, which is selected, dragged and resized as usual; `interactive: true` gives the item
+  its presses, and keys typed into it stay with it.
+
 ### Changed
 
 - **Breaking:** `KonvaDesigner`'s focusable surface has the ARIA role `application` instead of

@@ -1,7 +1,7 @@
 // Konva 기반 Designer - 메인 컴포넌트
 export { KonvaDesigner } from './KonvaDesigner';
 export { KonvaDesigner as default } from './KonvaDesigner';
-export type { KonvaDesignerProps, DesignerHandle, FitToRectOptions } from './KonvaDesigner';
+export type { KonvaDesignerProps, DesignerHandle, FitToRectOptions, DesignerOverlayItem } from './KonvaDesigner';
 
 // Selection components
 export { SimpleSelectionDemo } from './SimpleSelectionDemo';

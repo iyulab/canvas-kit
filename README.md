@@ -61,6 +61,11 @@ function App() {
   `transform` + `onTransformChange` to control it, `onViewportResize` to learn its size, and
   `ref.current.fitToRect(rect, { padding, maxScale })` through a `DesignerHandle` ref. Objects keep scene coordinates: drags and resizes
   report scene positions and sizes at any zoom.
+- **Overlays** — `overlays` lays DOM content (what a shape stands for — a widget, a label) over the
+  shapes in scene coordinates, moving with the view, the same `{ id, x, y, width, height, content }`
+  items the viewer takes. In the designer an item is display-only by default: the pointer passes
+  through it to the shape beneath, which is selected, dragged and resized as usual. Mark an item
+  `interactive: true` for a control it must receive itself; keys typed into it are left alone.
 
 ### Viewer (Display Only)
 
