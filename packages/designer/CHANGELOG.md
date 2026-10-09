@@ -6,6 +6,8 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-09
+
 ### Added
 
 - `KonvaDesigner` `overlays` (`DesignerOverlayItem[]`): DOM content in scene coordinates over the shapes, panned
