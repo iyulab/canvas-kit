@@ -46,6 +46,8 @@ describe('KonvaDesigner keyboard', () => {
         const surface = screen.getByRole('application', { name: 'Floor editor' });
         expect(surface).toHaveAttribute('tabindex', '0');
         expect(surface.getAttribute('aria-keyshortcuts')).toContain('Tab');
+        // "+" separates a modifier from its key there, so the plus key is spelled "Plus".
+        expect(surface.getAttribute('aria-keyshortcuts')!.split(' ')).toEqual(expect.arrayContaining(['Plus', '=', '-']));
     });
 
     it('steps through the shapes with Tab and Shift+Tab, and lets focus leave past either end', () => {

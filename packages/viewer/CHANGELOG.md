@@ -6,6 +6,11 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- `aria-keyshortcuts` names the zoom keys as ARIA spells them — `Plus` (a bare `+` separates a modifier
+  from its key), and `=`, which zooms in too.
+
 ## [0.5.1] - 2026-10-08
 
 ### Changed

@@ -402,7 +402,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
       tabIndex={0}
       role="region"
       aria-label={ariaLabel}
-      aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown + -"
+      aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Plus = -"
       className={className}
       style={{
         position: 'relative',

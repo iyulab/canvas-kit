@@ -44,6 +44,8 @@ export default function InteractiveBuildingMapPage() {
     // (occupancy) shows in the details panel without a second copy to keep in step.
     const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
     const [hoveredRoom, setHoveredRoom] = useState<string | null>(null);
+    // Kept apart from the pointer's room, so moving the mouse off a room does not clear the room keyboard focus is on.
+    const [focusedRoom, setFocusedRoom] = useState<string | null>(null);
     const [building, setBuilding] = useState<Building>({
         rooms: [
             { id: 'room1', name: 'Conference Room A', type: 'meeting', occupied: false, capacity: 12, description: 'Large conference room with projector' },
@@ -91,7 +93,7 @@ export default function InteractiveBuildingMapPage() {
             if (!room) return;
 
             const colors = roomColors[room.type];
-            const isHovered = hoveredRoom === room.id;
+            const isHovered = hoveredRoom === room.id || focusedRoom === room.id;
             const isSelected = selectedRoomId === room.id;
 
             newScene.add({
@@ -186,7 +188,7 @@ export default function InteractiveBuildingMapPage() {
         });
 
         setScene(newScene);
-    }, [building, hoveredRoom, selectedRoomId, roomColors]);
+    }, [building, hoveredRoom, focusedRoom, selectedRoomId, roomColors]);
 
     const handleRoomClick = useCallback((roomId: string) => {
         setSelectedRoomId(building.rooms.some(r => r.id === roomId) ? roomId : null);
@@ -200,14 +202,14 @@ export default function InteractiveBuildingMapPage() {
             content: (
                 <button
                     type="button"
-                    aria-label={room.name}
+                    aria-label={`${room.name}, ${room.occupied ? 'occupied' : 'available'}`}
                     aria-pressed={selectedRoomId === room.id}
                     className="block w-full h-full cursor-pointer bg-transparent border-0 p-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
                     onClick={() => handleRoomClick(room.id)}
                     onMouseEnter={() => setHoveredRoom(room.id)}
                     onMouseLeave={() => setHoveredRoom(null)}
-                    onFocus={() => setHoveredRoom(room.id)}
-                    onBlur={() => setHoveredRoom(null)}
+                    onFocus={() => setFocusedRoom(room.id)}
+                    onBlur={() => setFocusedRoom(null)}
                 />
             ),
         }];

@@ -607,6 +607,7 @@ describe('Viewer', () => {
       expect(container).toHaveAttribute('role', 'region');
       expect(container).toHaveAttribute('aria-label', 'Floor plan');
       expect(container.getAttribute('aria-keyshortcuts')).toContain('ArrowLeft');
+      expect(container.getAttribute('aria-keyshortcuts')!.split(' ')).toEqual(expect.arrayContaining(['Plus', '=', '-']));
     });
 
     it('pans with the arrow keys — the view moves toward the arrow — and further with Shift', () => {

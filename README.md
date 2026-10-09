@@ -65,7 +65,8 @@ function App() {
   shapes in scene coordinates, moving with the view, the same `{ id, x, y, width, height, content }`
   items the viewer takes. In the designer an item is display-only by default: the pointer passes
   through it to the shape beneath, which is selected, dragged and resized as usual. Mark an item
-  `interactive: true` for a control it must receive itself; keys typed into it are left alone.
+  `interactive: true` for a control it must receive itself; its presses, keys and wheel are then its
+  own — a pan or zoom that starts on it does not reach the design, so keep such items small.
 
 ### Viewer (Display Only)
 

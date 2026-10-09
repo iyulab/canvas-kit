@@ -111,7 +111,8 @@ export interface DesignerOverlayItem extends OverlayItem {
      * Whether the item takes the pointer. Default `false`: on an editing surface what is laid over a
      * shape is shown, not used — a press on it reaches the shape beneath, which is selected, dragged
      * and resized as if the item were not there. `true` for a control the item itself must receive (a
-     * button); its presses and keys are then its own, not the designer's.
+     * button); its presses and keys are then its own, not the designer's — a wheel, a Space or middle
+     * drag that starts on it neither zooms nor pans the design, so keep such items small.
      */
     interactive?: boolean;
 }
@@ -601,7 +602,7 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
             tabIndex={0}
             role="application"
             aria-label={ariaLabel}
-            aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown + - Tab Shift+Tab Escape Space"
+            aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Plus = - Tab Shift+Tab Escape Space"
             onKeyDown={handleKeyDown}
             onKeyUp={handleKeyUp}
             onBlur={() => holdSpace(false)}
