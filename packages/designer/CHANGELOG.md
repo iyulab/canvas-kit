@@ -6,6 +6,19 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** `KonvaDesigner`'s focusable surface has the ARIA role `application` instead of
+  `region`. It has its own keyboard model (arrows, Tab through the shapes, Space to pan), and in an
+  `application` a screen reader passes those keys to it rather than using them to read the page.
+  Code that finds the designer by role — `getByRole('region', { name })` in a test — looks for
+  `application`.
+
+### Fixed
+
+- `AdvancedDesigner`'s brush colour buttons have an accessible name and report which colour is
+  chosen (`aria-pressed`).
+
 ## [0.6.0] - 2026-10-08
 
 ### Added

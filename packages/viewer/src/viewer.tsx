@@ -390,10 +390,15 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
     }
   }, []);
 
+  // A pannable region, focusable so the keyboard can pan and zoom it as the pointer does (WCAG
+  // 2.1.1 — the same reason a scrollable region takes `tabIndex`). It stays a `region` rather than
+  // an `application`: what sits on it (overlays) is content a screen reader reads in browse mode.
   return (
+    // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div
       ref={containerRef}
       data-testid="viewer-container"
+      // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex
       tabIndex={0}
       role="region"
       aria-label={ariaLabel}

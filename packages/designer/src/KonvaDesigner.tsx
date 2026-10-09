@@ -571,11 +571,16 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
         }
     }, [selectedIds, spaceHeld, handleObjectDragEnd, handleObjectTransformEnd]);
 
+    // An editing surface with its own keyboard model (arrows move or pan, Tab steps through the shapes,
+    // Space holds a pan), so it is an `application`: a screen reader passes those keys through instead
+    // of using them to read. The lint rules count only widget roles as interactive.
     return (
+        // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
         <div
             ref={containerRef}
+            // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex
             tabIndex={0}
-            role="region"
+            role="application"
             aria-label={ariaLabel}
             aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown + - Tab Shift+Tab Escape Space"
             onKeyDown={handleKeyDown}

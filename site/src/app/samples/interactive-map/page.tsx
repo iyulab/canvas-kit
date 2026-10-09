@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Scene } from '@canvas-kit/core';
+import type { ViewerOverlayItem } from '@canvas-kit/viewer';
 
-const Viewer = dynamic(() => import('@canvas-kit/designer').then(mod => mod.AdvancedDesigner), {
+const Viewer = dynamic(() => import('@canvas-kit/viewer').then(mod => mod.Viewer), {
     ssr: false,
 });
 
@@ -23,6 +24,19 @@ interface Building {
     corridors: Record<string, unknown>[];
     exits: Record<string, unknown>[];
 }
+
+// Where each room sits on the floor plan. The scene draws from it, and so do the overlay buttons that
+// make each room selectable by pointer and keyboard alike.
+const ROOM_LAYOUT = [
+    { id: 'room1', x: 50, y: 50, width: 200, height: 120 },
+    { id: 'room2', x: 280, y: 50, width: 150, height: 80 },
+    { id: 'room3', x: 460, y: 50, width: 150, height: 80 },
+    { id: 'room4', x: 640, y: 50, width: 120, height: 200 },
+    { id: 'room5', x: 280, y: 160, width: 150, height: 80 },
+    { id: 'room6', x: 460, y: 160, width: 80, height: 80 },
+    { id: 'room7', x: 570, y: 160, width: 40, height: 80 },
+    { id: 'room8', x: 50, y: 200, width: 200, height: 150 },
+];
 
 export default function InteractiveBuildingMapPage() {
     const [scene, setScene] = useState<Scene>(new Scene());
@@ -72,18 +86,7 @@ export default function InteractiveBuildingMapPage() {
         });
 
         // Create rooms
-        const roomLayout = [
-            { id: 'room1', x: 50, y: 50, width: 200, height: 120 },
-            { id: 'room2', x: 280, y: 50, width: 150, height: 80 },
-            { id: 'room3', x: 460, y: 50, width: 150, height: 80 },
-            { id: 'room4', x: 640, y: 50, width: 120, height: 200 },
-            { id: 'room5', x: 280, y: 160, width: 150, height: 80 },
-            { id: 'room6', x: 460, y: 160, width: 80, height: 80 },
-            { id: 'room7', x: 570, y: 160, width: 40, height: 80 },
-            { id: 'room8', x: 50, y: 200, width: 200, height: 150 },
-        ];
-
-        roomLayout.forEach(layout => {
+        ROOM_LAYOUT.forEach(layout => {
             const room = building.rooms.find(r => r.id === layout.id);
             if (!room) return;
 
@@ -188,6 +191,27 @@ export default function InteractiveBuildingMapPage() {
     const handleRoomClick = useCallback((roomId: string) => {
         setSelectedRoomId(building.rooms.some(r => r.id === roomId) ? roomId : null);
     }, [building]);
+
+    const roomOverlays = useMemo<ViewerOverlayItem[]>(() => ROOM_LAYOUT.flatMap(layout => {
+        const room = building.rooms.find(r => r.id === layout.id);
+        if (!room) return [];
+        return [{
+            ...layout,
+            content: (
+                <button
+                    type="button"
+                    aria-label={room.name}
+                    aria-pressed={selectedRoomId === room.id}
+                    className="block w-full h-full cursor-pointer bg-transparent border-0 p-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
+                    onClick={() => handleRoomClick(room.id)}
+                    onMouseEnter={() => setHoveredRoom(room.id)}
+                    onMouseLeave={() => setHoveredRoom(null)}
+                    onFocus={() => setHoveredRoom(room.id)}
+                    onBlur={() => setHoveredRoom(null)}
+                />
+            ),
+        }];
+    }), [building, selectedRoomId, handleRoomClick]);
 
     const toggleRoomOccupancy = (roomId: string) => {
         // A new building object, so the effect that draws the scene sees the change and redraws.
@@ -337,70 +361,9 @@ export default function InteractiveBuildingMapPage() {
                         <h3 className="text-lg font-medium p-4 border-b border-gray-200">
                             Floor Plan - Level 1
                         </h3>
-                        <div className="relative">
-                            <Viewer scene={scene} width={800} height={500} />
-
-                            {/* Interactive overlay for room clicks */}
-                            <div className="absolute inset-0">
-                                {/* Room click areas - simplified for demo */}
-                                <div
-                                    className="absolute cursor-pointer"
-                                    style={{ left: '50px', top: '50px', width: '200px', height: '120px' }}
-                                    onClick={() => handleRoomClick('room1')}
-                                    onMouseEnter={() => setHoveredRoom('room1')}
-                                    onMouseLeave={() => setHoveredRoom(null)}
-                                />
-                                <div
-                                    className="absolute cursor-pointer"
-                                    style={{ left: '280px', top: '50px', width: '150px', height: '80px' }}
-                                    onClick={() => handleRoomClick('room2')}
-                                    onMouseEnter={() => setHoveredRoom('room2')}
-                                    onMouseLeave={() => setHoveredRoom(null)}
-                                />
-                                <div
-                                    className="absolute cursor-pointer"
-                                    style={{ left: '460px', top: '50px', width: '150px', height: '80px' }}
-                                    onClick={() => handleRoomClick('room3')}
-                                    onMouseEnter={() => setHoveredRoom('room3')}
-                                    onMouseLeave={() => setHoveredRoom(null)}
-                                />
-                                <div
-                                    className="absolute cursor-pointer"
-                                    style={{ left: '640px', top: '50px', width: '120px', height: '200px' }}
-                                    onClick={() => handleRoomClick('room4')}
-                                    onMouseEnter={() => setHoveredRoom('room4')}
-                                    onMouseLeave={() => setHoveredRoom(null)}
-                                />
-                                <div
-                                    className="absolute cursor-pointer"
-                                    style={{ left: '280px', top: '160px', width: '150px', height: '80px' }}
-                                    onClick={() => handleRoomClick('room5')}
-                                    onMouseEnter={() => setHoveredRoom('room5')}
-                                    onMouseLeave={() => setHoveredRoom(null)}
-                                />
-                                <div
-                                    className="absolute cursor-pointer"
-                                    style={{ left: '460px', top: '160px', width: '80px', height: '80px' }}
-                                    onClick={() => handleRoomClick('room6')}
-                                    onMouseEnter={() => setHoveredRoom('room6')}
-                                    onMouseLeave={() => setHoveredRoom(null)}
-                                />
-                                <div
-                                    className="absolute cursor-pointer"
-                                    style={{ left: '570px', top: '160px', width: '40px', height: '80px' }}
-                                    onClick={() => handleRoomClick('room7')}
-                                    onMouseEnter={() => setHoveredRoom('room7')}
-                                    onMouseLeave={() => setHoveredRoom(null)}
-                                />
-                                <div
-                                    className="absolute cursor-pointer"
-                                    style={{ left: '50px', top: '200px', width: '200px', height: '150px' }}
-                                    onClick={() => handleRoomClick('room8')}
-                                    onMouseEnter={() => setHoveredRoom('room8')}
-                                    onMouseLeave={() => setHoveredRoom(null)}
-                                />
-                            </div>
-                        </div>
+                        {/* Each room is a button laid over the plan in scene coordinates, so it stays on its
+                            room as the plan pans and zooms, and a room is selectable from the keyboard too */}
+                        <Viewer scene={scene} width={800} height={500} overlays={roomOverlays} ariaLabel="Floor plan" />
                     </div>
 
                     {/* Room List */}
@@ -408,28 +371,31 @@ export default function InteractiveBuildingMapPage() {
                         <h4 className="font-medium mb-3">Room Directory</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {building.rooms.map(room => (
-                                <div
+                                <button
                                     key={room.id}
+                                    type="button"
+                                    aria-pressed={selectedRoomId === room.id}
                                     onClick={() => setSelectedRoomId(room.id)}
-                                    className={`p-3 rounded border cursor-pointer transition-colors ${selectedRoomId === room.id
+                                    className={`block w-full text-left p-3 rounded border cursor-pointer transition-colors ${selectedRoomId === room.id
                                         ? 'bg-yellow-50 border-yellow-300'
                                         : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                                         }`}
                                 >
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <div className="font-medium text-sm">{room.name}</div>
-                                            <div className="text-xs text-gray-600 capitalize">{room.type}</div>
-                                        </div>
-                                        <div className={`w-3 h-3 rounded-full ${room.occupied ? 'bg-red-500' : 'bg-green-500'
+                                    <span className="flex items-center justify-between">
+                                        <span>
+                                            <span className="block font-medium text-sm">{room.name}</span>
+                                            <span className="block text-xs text-gray-600 capitalize">{room.type}</span>
+                                        </span>
+                                        <span className={`block w-3 h-3 rounded-full ${room.occupied ? 'bg-red-500' : 'bg-green-500'
                                             }`} />
-                                    </div>
+                                        <span className="sr-only">{room.occupied ? 'Occupied' : 'Available'}</span>
+                                    </span>
                                     {room.capacity && (
-                                        <div className="text-xs text-gray-500 mt-1">
+                                        <span className="block text-xs text-gray-500 mt-1">
                                             Capacity: {room.capacity}
-                                        </div>
+                                        </span>
                                     )}
-                                </div>
+                                </button>
                             ))}
                         </div>
                     </div>

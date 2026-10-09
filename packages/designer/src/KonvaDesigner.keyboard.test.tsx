@@ -30,7 +30,7 @@ function sceneWithShapes() {
     return scene;
 }
 const ids = (spy: ReturnType<typeof vi.fn>) => (spy.mock.lastCall![0] as { id: string }[]).map(o => o.id);
-const designer = () => screen.getByRole('region', { name: 'Designer' });
+const designer = () => screen.getByRole('application', { name: 'Designer' });
 const key = (k: string, init: Record<string, unknown> = {}) => {
     const event = fireEvent.keyDown(designer(), { key: k, ...init });
     return event; // false when the handler called preventDefault
@@ -41,11 +41,11 @@ describe('KonvaDesigner keyboard', () => {
         stageProps = {};
     });
 
-    it('is a focusable, named region that lists its keys', () => {
+    it('is a focusable, named application that lists its keys', () => {
         render(<KonvaDesigner width={400} height={200} scene={new Scene()} ariaLabel="Floor editor" />);
-        const region = screen.getByRole('region', { name: 'Floor editor' });
-        expect(region).toHaveAttribute('tabindex', '0');
-        expect(region.getAttribute('aria-keyshortcuts')).toContain('Tab');
+        const surface = screen.getByRole('application', { name: 'Floor editor' });
+        expect(surface).toHaveAttribute('tabindex', '0');
+        expect(surface.getAttribute('aria-keyshortcuts')).toContain('Tab');
     });
 
     it('steps through the shapes with Tab and Shift+Tab, and lets focus leave past either end', () => {

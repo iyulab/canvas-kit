@@ -368,6 +368,9 @@ export const AdvancedDesigner: React.FC<AdvancedDesignerProps> = ({
                                         {brushColors.map(color => (
                                             <button
                                                 key={color}
+                                                type="button"
+                                                aria-label={`브러시 색 ${color}`}
+                                                aria-pressed={drawingTool.color === color}
                                                 onClick={() => handleDrawingToolChange({ ...drawingTool, color })}
                                                 className={`w-6 h-6 rounded border-2 ${drawingTool.color === color ? 'border-gray-800' : 'border-gray-300'}`}
                                                 style={{ backgroundColor: color }}

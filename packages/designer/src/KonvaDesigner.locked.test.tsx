@@ -71,7 +71,7 @@ describe('KonvaDesigner locked shapes', () => {
         const editable = new Scene();
         editable.add({ id: 'pump', type: 'rect', x: 50, y: 50, width: 40, height: 20 });
         const { rerender } = render(<KonvaDesigner width={400} height={300} scene={editable} onSelectionChange={onSelectionChange} />);
-        const region = screen.getByRole('region', { name: 'Designer' });
+        const region = screen.getByRole('application', { name: 'Designer' });
         fireEvent.keyDown(region, { key: 'Tab' });
         expect(lastSelection(onSelectionChange)).toEqual(['pump']);
 
@@ -86,7 +86,7 @@ describe('KonvaDesigner locked shapes', () => {
     it('steps over them with Tab', () => {
         const onSelectionChange = vi.fn();
         render(<KonvaDesigner width={400} height={300} scene={plan()} onSelectionChange={onSelectionChange} />);
-        const region = screen.getByRole('region', { name: 'Designer' });
+        const region = screen.getByRole('application', { name: 'Designer' });
         fireEvent.keyDown(region, { key: 'Tab' });
         expect(lastSelection(onSelectionChange)).toEqual(['pump']);
         expect(fireEvent.keyDown(region, { key: 'Tab' })).toBe(true); // past the last editable shape: focus moves on
