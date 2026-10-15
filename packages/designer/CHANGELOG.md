@@ -6,6 +6,10 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A line's `dash` (`@canvas-kit/core` `Line.dash`) is drawn.
+
 ### Fixed
 
 - `aria-keyshortcuts` names the zoom keys as ARIA spells them — `Plus` (a bare `+` separates a modifier

@@ -6,6 +6,10 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `Line.dash` — a dash pattern (`[6, 4]`), drawn by `CanvasKitRenderer` and the designer; absent, the line is solid.
+
 ### Fixed
 
 - `CanvasKitRenderer` no longer paints a shape in the colour of the shape drawn before it. A fill or

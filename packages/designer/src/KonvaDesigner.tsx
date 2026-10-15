@@ -545,6 +545,7 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
                         points={obj.points}
                         stroke={obj.stroke || DEFAULT_LINE_STROKE}
                         strokeWidth={obj.strokeWidth || DEFAULT_LINE_WIDTH}
+                        dash={obj.dash}
                     />
                 );
             case 'path':

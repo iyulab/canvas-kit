@@ -188,6 +188,7 @@ export class CanvasKitRenderer {
 
         if (this.paint('strokeStyle', line.stroke || DEFAULT_LINE_STROKE)) {
             this.ctx.lineWidth = line.strokeWidth || DEFAULT_LINE_WIDTH;
+            if (line.dash?.length) this.ctx.setLineDash(line.dash);
             this.ctx.stroke();
         }
     }

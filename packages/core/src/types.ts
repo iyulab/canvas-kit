@@ -40,6 +40,8 @@ export interface Path extends Shape {
 export interface Line extends Shape {
   points: number[]; // [x1, y1, x2, y2, ...]
   type: 'line';
+  /** A dash pattern — dash and gap lengths in scene units, as `setLineDash` takes them (`[6, 4]`). Absent or empty: solid. */
+  dash?: number[];
 }
 
 export interface Image extends Shape {

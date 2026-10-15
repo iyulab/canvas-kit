@@ -200,6 +200,19 @@ describe('CanvasKitRenderer object geometry', () => {
     expect(fillRect?.transform).toEqual([1, 0, 0, 1, 0, 0]);
   });
 
+  it('draws a dashed line with its dash pattern, and the next line solid', () => {
+    const canvas = document.createElement('canvas');
+    const scene = new Scene();
+    scene.add({ type: 'line', x: 0, y: 0, points: [0, 0, 10, 0], stroke: 'black', strokeWidth: 1, dash: [6, 4] });
+    scene.add({ type: 'line', x: 0, y: 0, points: [0, 5, 10, 5], stroke: 'black', strokeWidth: 1 });
+    const ctx = canvas.getContext('2d')!;
+    const dashes: number[][] = [];
+    const stroke = ctx.stroke.bind(ctx);
+    ctx.stroke = ((...args: []) => { dashes.push(ctx.getLineDash()); return stroke(...args); }) as typeof ctx.stroke;
+    new CanvasKitRenderer(canvas).render(scene);
+    expect(dashes).toEqual([[6, 4], []]);
+  });
+
   it('paints nothing for a colour the canvas cannot read, instead of the colour drawn before it', () => {
     const calls = drawCallsFor(scene => {
       scene.add({ type: 'rect', x: 0, y: 0, width: 10, height: 10, fill: 'rgb(255, 0, 0)' });
