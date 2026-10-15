@@ -11,6 +11,8 @@ All notable changes to this package are documented here. The format follows
 - A `fixed` shape (`@canvas-kit/core` `Shape.fixed`) is selected — a click, Tab, a marquee — but never dragged,
   nudged by the arrows or given transform handles.
 - A selected line is drawn in the selection colour, as a selected rect, circle, path or text is.
+- `DesignerHandle.select(ids)` — selects shapes as a click or a marquee would, reported through `onSelectionChange`:
+  a shape the host just added can be selected at once, so its properties open.
 
 ### Changed
 

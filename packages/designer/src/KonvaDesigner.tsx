@@ -102,6 +102,11 @@ export interface DesignerHandle {
      * once the viewport has a size.
      */
     fitToRect(rect: SceneRect, options?: FitToRectOptions): void;
+    /**
+     * Selects these shapes, as a click or a marquee would, and reports it through `onSelectionChange` — a shape the
+     * host just added, say, so its properties open at once. Ids not in the scene, or of locked shapes, are left out.
+     */
+    select(ids: readonly string[]): void;
 }
 
 /** DOM content placed in scene coordinates over the design — it pans and zooms with the shapes. */
@@ -219,16 +224,6 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
         pendingFitRef.current = null;
         fit(pending.rect, pending.options);
     }, [width, height, fit]);
-    useImperativeHandle(ref, () => ({
-        fitToRect(rect, options = {}) {
-            if (width <= 0 || height <= 0) {
-                pendingFitRef.current = { rect, options };
-                return;
-            }
-            pendingFitRef.current = null;
-            fit(rect, options);
-        },
-    }), [width, height, fit]);
 
     // Lazy-initialized so an omitted `commandHistory` allocates exactly one default instance,
     // not one per render (a plain default-parameter value would re-run every render).
@@ -239,6 +234,21 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
     useLayoutEffect(() => {
         selectedIdsRef.current = selectedIds;
     });
+
+    useImperativeHandle(ref, () => ({
+        fitToRect(rect, options = {}) {
+            if (width <= 0 || height <= 0) {
+                pendingFitRef.current = { rect, options };
+                return;
+            }
+            pendingFitRef.current = null;
+            fit(rect, options);
+        },
+        select(ids) {
+            const selectable = new Set(scene.getObjects().filter(obj => obj.id && !obj.locked).map(obj => obj.id));
+            setSelectedIds(ids.filter(id => selectable.has(id)));
+        },
+    }), [width, height, fit, scene]);
 
     // Pointer drags on the stage, tracked on the window so they keep following outside it:
     // - pan: the middle button anywhere, or the left button while Space is held. The transform is

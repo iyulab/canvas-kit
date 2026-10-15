@@ -2,7 +2,7 @@ import React from 'react';
 import { render, act, fireEvent, screen } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Scene } from '@canvas-kit/core';
-import { KonvaDesigner } from './KonvaDesigner';
+import { KonvaDesigner, type DesignerHandle } from './KonvaDesigner';
 
 // A fixed shape is a mark whose place follows other shapes (a line joining two boxes): selected, never moved.
 let stageProps: Record<string, any> = {};
@@ -80,5 +80,14 @@ describe('KonvaDesigner fixed shapes', () => {
             window.dispatchEvent(Object.assign(new Event('pointerup'), { clientX: 399, clientY: 299, pointerId: 1 }));
         });
         expect(lastSelection(onSelectionChange)).toEqual(['a', 'b', 'link']);
+    });
+    it('are selected by the host through select(), which leaves out what is not in the scene or is locked', () => {
+        const onSelectionChange = vi.fn();
+        const scene = board();
+        scene.add({ id: 'plan', type: 'rect', x: 0, y: 0, width: 10, height: 10, locked: true });
+        const ref = React.createRef<DesignerHandle>();
+        render(<KonvaDesigner ref={ref} width={400} height={300} scene={scene} onSelectionChange={onSelectionChange} />);
+        act(() => ref.current!.select(['link', 'plan', 'gone']));
+        expect(lastSelection(onSelectionChange)).toEqual(['link']);
     });
 });
