@@ -6,6 +6,13 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- `CanvasKitRenderer` no longer paints a shape in the colour of the shape drawn before it. A fill or
+  stroke the canvas cannot read (`none`, a CSS variable, a typo) used to leave the previous colour in
+  place — the first such shape came out black. Such a fill or stroke now paints nothing, and every
+  shape starts from the same drawing state (colour, line width, font, alignment, offset).
+
 ## [0.5.0] - 2026-10-08
 
 ### Added

@@ -199,4 +199,15 @@ describe('CanvasKitRenderer object geometry', () => {
     const fillRect = calls.find(c => c.type === 'fillRect');
     expect(fillRect?.transform).toEqual([1, 0, 0, 1, 0, 0]);
   });
+
+  it('paints nothing for a colour the canvas cannot read, instead of the colour drawn before it', () => {
+    const calls = drawCallsFor(scene => {
+      scene.add({ type: 'rect', x: 0, y: 0, width: 10, height: 10, fill: 'rgb(255, 0, 0)' });
+      scene.add({ type: 'rect', x: 20, y: 0, width: 10, height: 10, fill: 'none', stroke: 'var(--line)', strokeWidth: 1 });
+      scene.add({ type: 'rect', x: 40, y: 0, width: 10, height: 10, fill: '#00ff00' });
+    });
+    const fills = calls.filter(c => c.type === 'fillRect');
+    expect(fills.map(c => c.props.x)).toEqual([0, 40]);
+    expect(calls.some(c => c.type === 'strokeRect')).toBe(false);
+  });
 });

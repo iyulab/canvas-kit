@@ -57,10 +57,15 @@ export class CanvasKitRenderer {
         this.ctx.scale(transform.scale, transform.scale);
 
         for (const obj of objects) {
+            // Each object starts from the same drawing state: nothing one object sets — a colour,
+            // a line width, a font, a translation — reaches the next.
+            this.ctx.save();
             try {
                 this.renderObject(obj);
             } catch (error) {
                 console.warn(`Failed to render object of type "${obj.type}":`, error);
+            } finally {
+                this.ctx.restore();
             }
         }
 
@@ -92,14 +97,28 @@ export class CanvasKitRenderer {
         }
     }
 
+    /**
+     * Sets a fill or stroke style and answers whether the canvas took it. Canvas 2D ignores a value
+     * it cannot parse ("none", a CSS variable, a typo) and keeps the one set before — which would
+     * paint this object in whatever colour was last used. A value it did not take paints nothing.
+     */
+    private paint(property: 'fillStyle' | 'strokeStyle', value: string | undefined): boolean {
+        if (!value) return false;
+        // Two different probes: a value the canvas took reads back the same after either one.
+        this.ctx[property] = '#000001';
+        this.ctx[property] = value;
+        const afterFirst = this.ctx[property];
+        this.ctx[property] = '#000002';
+        this.ctx[property] = value;
+        return this.ctx[property] === afterFirst;
+    }
+
     private drawRect(rect: Rect) {
-        if (rect.fill) {
-            this.ctx.fillStyle = rect.fill;
+        if (this.paint('fillStyle', rect.fill)) {
             this.ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
         }
 
-        if (rect.stroke && rect.strokeWidth) {
-            this.ctx.strokeStyle = rect.stroke;
+        if (rect.strokeWidth && this.paint('strokeStyle', rect.stroke)) {
             this.ctx.lineWidth = rect.strokeWidth;
             this.ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
         }
@@ -109,13 +128,11 @@ export class CanvasKitRenderer {
         this.ctx.beginPath();
         this.ctx.arc(circle.x, circle.y, circle.radius, 0, 2 * Math.PI);
 
-        if (circle.fill) {
-            this.ctx.fillStyle = circle.fill;
+        if (this.paint('fillStyle', circle.fill)) {
             this.ctx.fill();
         }
 
-        if (circle.stroke && circle.strokeWidth) {
-            this.ctx.strokeStyle = circle.stroke;
+        if (circle.strokeWidth && this.paint('strokeStyle', circle.stroke)) {
             this.ctx.lineWidth = circle.strokeWidth;
             this.ctx.stroke();
         }
@@ -131,44 +148,36 @@ export class CanvasKitRenderer {
         // x/y is the top of the text box, as in every other renderer (geometry.ts).
         this.ctx.textBaseline = 'top';
 
-        this.ctx.fillStyle = text.fill || DEFAULT_TEXT_FILL;
-        this.ctx.fillText(text.text, text.x, text.y);
+        if (this.paint('fillStyle', text.fill || DEFAULT_TEXT_FILL)) {
+            this.ctx.fillText(text.text, text.x, text.y);
+        }
 
-        if (text.stroke && text.strokeWidth) {
-            this.ctx.strokeStyle = text.stroke;
+        if (text.strokeWidth && this.paint('strokeStyle', text.stroke)) {
             this.ctx.lineWidth = text.strokeWidth;
             this.ctx.strokeText(text.text, text.x, text.y);
         }
-
-        this.ctx.textAlign = 'left';
-        this.ctx.textBaseline = 'alphabetic';
     }
 
     private drawPath(path: Path) {
         if (path.points.length < 4) return;
 
         // points are relative to the object's x/y (geometry.ts).
-        this.ctx.save();
         this.ctx.translate(path.x, path.y);
         tracePath(this.ctx, path);
 
-        if (path.fill && path.closed) {
-            this.ctx.fillStyle = path.fill;
+        if (path.closed && this.paint('fillStyle', path.fill)) {
             this.ctx.fill();
         }
 
-        if (path.stroke && path.strokeWidth) {
-            this.ctx.strokeStyle = path.stroke;
+        if (path.strokeWidth && this.paint('strokeStyle', path.stroke)) {
             this.ctx.lineWidth = path.strokeWidth;
             this.ctx.stroke();
         }
-        this.ctx.restore();
     }
 
     private drawLine(line: Line) {
         if (line.points.length < 4) return;
 
-        this.ctx.save();
         this.ctx.translate(line.x, line.y);
         this.ctx.beginPath();
         this.ctx.moveTo(line.points[0], line.points[1]);
@@ -177,10 +186,10 @@ export class CanvasKitRenderer {
             this.ctx.lineTo(line.points[i], line.points[i + 1]);
         }
 
-        this.ctx.strokeStyle = line.stroke || DEFAULT_LINE_STROKE;
-        this.ctx.lineWidth = line.strokeWidth || DEFAULT_LINE_WIDTH;
-        this.ctx.stroke();
-        this.ctx.restore();
+        if (this.paint('strokeStyle', line.stroke || DEFAULT_LINE_STROKE)) {
+            this.ctx.lineWidth = line.strokeWidth || DEFAULT_LINE_WIDTH;
+            this.ctx.stroke();
+        }
     }
 
     private drawImage(image: ImageShape) {
