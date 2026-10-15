@@ -39,7 +39,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@canvas-kit/core": "workspace:*"
+    "@canvas-kit/core": "workspace:^"
   },
   "peerDependencies": {
     "konva": "^10.0.0",

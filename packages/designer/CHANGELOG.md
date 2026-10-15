@@ -6,6 +6,11 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Its `@canvas-kit/core` dependency is published as a range (`^0.6.0`) rather than one exact version, so a core
+  patch release reaches it without a designer release.
+
 ## [0.8.0] - 2026-10-16
 
 ### Added
