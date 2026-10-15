@@ -6,6 +6,15 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `Shape.fixed` (optional, every shape type): the shape is selected but never moved or reshaped — a designer selects
+  it by a click, Tab or a marquee, and never drags, nudges or transforms it. For marks whose place follows other
+  shapes (a line joining two boxes, its label), so a host can edit what they stand for. Viewers draw it as any other
+  shape.
+- `POLYLINE_HIT_TOLERANCE` — how far beyond half its stroke a point still hits a line or path (`containsPoint`), for
+  a renderer that hit-tests lines itself.
+
 ## [0.6.0] - 2026-10-16
 
 ### Added

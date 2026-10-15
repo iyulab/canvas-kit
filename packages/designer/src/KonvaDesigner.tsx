@@ -4,7 +4,7 @@ import {
     DrawingObject, Scene, defaultImageLoader, CommandHistory, MoveCommand, ResizeCommand, CompositeCommand,
     IDENTITY_TRANSFORM, fitTransform, zoomAt, viewToScene, isObjectIntersectingRect,
     DEFAULT_LINE_STROKE, DEFAULT_LINE_WIDTH, DEFAULT_TEXT_FILL, DEFAULT_FONT_SIZE, DEFAULT_FONT_FAMILY,
-    textBoxOffsetX, tracePath,
+    POLYLINE_HIT_TOLERANCE, textBoxOffsetX, tracePath,
 } from '@canvas-kit/core';
 import type { Image as ImageShape, Transform, Rect as SceneRect, Size, ResizeGeometry, OverlayItem } from '@canvas-kit/core';
 import type Konva from 'konva';
@@ -326,7 +326,7 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
         if (direction && selected.length > 0) {
             const step = e.shiftKey ? KEY_NUDGE_FAST : 1;
             const moves = scene.getObjects()
-                .filter(obj => obj.id && !obj.locked && selected.includes(obj.id))
+                .filter(obj => obj.id && !obj.locked && !obj.fixed && selected.includes(obj.id))
                 .map(obj => new MoveCommand(obj, { x: obj.x, y: obj.y }, { x: obj.x + direction[0] * step, y: obj.y + direction[1] * step }, scene));
             if (moves.length > 0) history.execute(moves.length === 1 ? moves[0] : new CompositeCommand(moves, `Move ${moves.length} objects`));
         } else if (direction) {
@@ -396,9 +396,10 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
 
         if (!transformer || !stage) return;
 
-        const locked = new Set(scene.getObjects().filter(obj => obj.locked).map(obj => obj.id));
+        // A fixed shape is selected but takes no handles: it is never reshaped.
+        const unmovable = new Set(scene.getObjects().filter(obj => obj.locked || obj.fixed).map(obj => obj.id));
         const selectedNodes = selectedIds
-            .filter(id => !locked.has(id))
+            .filter(id => !unmovable.has(id))
             .map(id => stage.findOne(`#${id}`))
             .filter((node): node is Konva.Node => node !== undefined);
         transformer.nodes(selectedNodes);
@@ -508,7 +509,8 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
             // A locked shape takes no pointer events at all: a press on it is a press on empty space
             // (a marquee, or deselecting), as if only the picture were there.
             listening: !obj.locked,
-            draggable: !spaceHeld && !obj.locked,
+            // A fixed shape is selected by a press but stays where it is.
+            draggable: !spaceHeld && !obj.locked && !obj.fixed,
             onDragEnd: handleObjectDragEnd,
             onTransformEnd: handleObjectTransformEnd,
         };
@@ -543,8 +545,10 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
                         key={obj.id}
                         {...commonProps}
                         points={obj.points}
-                        stroke={obj.stroke || DEFAULT_LINE_STROKE}
+                        stroke={isSelected ? '#0080ff' : obj.stroke || DEFAULT_LINE_STROKE}
                         strokeWidth={obj.strokeWidth || DEFAULT_LINE_WIDTH}
+                        // A press near the line hits it, as `containsPoint` judges — not only one on its stroke.
+                        hitStrokeWidth={(obj.strokeWidth || DEFAULT_LINE_WIDTH) + 2 * POLYLINE_HIT_TOLERANCE}
                         dash={obj.dash}
                     />
                 );

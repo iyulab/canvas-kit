@@ -9,6 +9,10 @@ export interface Shape {
   /** Drawn, but not edited: a designer never selects, drags, transforms or steps to it — the picture
    * the editable shapes sit on (a floor plan, a map) or a mark derived from them. Viewers ignore it. */
   locked?: boolean;
+  /** Selected, but never moved or reshaped: a mark whose place follows other shapes (a line joining two boxes, its
+   * label). A designer selects it — a click, Tab, a marquee — so a host can edit what it stands for, and never drags,
+   * nudges or transforms it. Viewers draw it as any other shape. */
+  fixed?: boolean;
 }
 
 export interface Rect extends Shape {

@@ -6,7 +6,16 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A `fixed` shape (`@canvas-kit/core` `Shape.fixed`) is selected — a click, Tab, a marquee — but never dragged,
+  nudged by the arrows or given transform handles.
+- A selected line is drawn in the selection colour, as a selected rect, circle, path or text is.
+
 ### Changed
+
+- A line is hit by a press within `POLYLINE_HIT_TOLERANCE` of its stroke, as `containsPoint` judges, not only by one
+  on its stroke — a thin line could hardly be clicked.
 
 - Its `@canvas-kit/core` dependency is published as a range (`^0.6.0`) rather than one exact version, so a core
   patch release reaches it without a designer release.

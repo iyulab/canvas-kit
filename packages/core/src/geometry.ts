@@ -18,7 +18,7 @@ export const DEFAULT_LINE_STROKE = 'black';
 export const DEFAULT_LINE_WIDTH = 1;
 
 /** Extra distance, beyond half the stroke, within which a point still hits a line or path. */
-const POLYLINE_HIT_TOLERANCE = 4;
+export const POLYLINE_HIT_TOLERANCE = 4;
 
 /** Reuses one off-screen 2D context for `measureText` rather than creating a canvas per call.
  * `null` outside a DOM environment, where text width falls back to an estimate. */
