@@ -6,6 +6,8 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-16
+
 ### Added
 
 - `Line.dash` — a dash pattern (`[6, 4]`), drawn by `CanvasKitRenderer` and the designer; absent, the line is solid.

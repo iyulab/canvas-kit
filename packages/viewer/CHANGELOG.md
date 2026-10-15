@@ -6,6 +6,12 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-10-16
+
+### Changed
+
+- Built on `@canvas-kit/core` 0.6.0 (a colour the canvas cannot read paints nothing; `Line.dash`).
+
 ### Fixed
 
 - `aria-keyshortcuts` names the zoom keys as ARIA spells them — `Plus` (a bare `+` separates a modifier
