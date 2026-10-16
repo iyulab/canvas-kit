@@ -6,6 +6,8 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-16
+
 ### Added
 
 - A `fixed` shape (`@canvas-kit/core` `Shape.fixed`) is selected — a click, Tab, a marquee — but never dragged,

@@ -6,6 +6,8 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-16
+
 ### Added
 
 - `Shape.fixed` (optional, every shape type): the shape is selected but never moved or reshaped — a designer selects

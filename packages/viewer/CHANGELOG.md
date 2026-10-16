@@ -6,10 +6,13 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-10-16
+
 ### Changed
 
-- Its `@canvas-kit/core` dependency is published as a range (`^0.6.0`) rather than one exact version, so a core
-  patch release reaches it without a viewer release.
+- Depends on `@canvas-kit/core` `^0.7.0`, so it draws what core 0.7.0 adds (rounded rects, a dash on any stroke, text
+  placed by `verticalAlign` over a padded background). The dependency is published as a range rather than one exact
+  version, so a core patch release reaches it without a viewer release.
 
 ## [0.5.2] - 2026-10-16
 
