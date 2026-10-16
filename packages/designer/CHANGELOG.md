@@ -13,6 +13,8 @@ All notable changes to this package are documented here. The format follows
 - A selected line is drawn in the selection colour, as a selected rect, circle, path or text is.
 - `DesignerHandle.select(ids)` — selects shapes as a click or a marquee would, reported through `onSelectionChange`:
   a shape the host just added can be selected at once, so its properties open.
+- Draws `Rect.cornerRadius`, a `dash` on any stroked shape, and `Text.verticalAlign`, `background` and `padding` as
+  the canvas renderer does. A text with a background is one node — pressing the text inside it selects it.
 
 ### Changed
 

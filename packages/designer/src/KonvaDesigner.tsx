@@ -1,13 +1,21 @@
 import React, { useRef, useEffect, useState, useCallback, useLayoutEffect, useReducer, forwardRef, useImperativeHandle } from 'react';
-import { Stage, Layer, Rect, Circle, Line, Text, Shape, Image as KonvaImage, Transformer } from 'react-konva';
+import { Stage, Layer, Rect, Circle, Line, Text, Label, Tag, Shape, Image as KonvaImage, Transformer } from 'react-konva';
 import {
     DrawingObject, Scene, defaultImageLoader, CommandHistory, MoveCommand, ResizeCommand, CompositeCommand,
     IDENTITY_TRANSFORM, fitTransform, zoomAt, viewToScene, isObjectIntersectingRect,
     DEFAULT_LINE_STROKE, DEFAULT_LINE_WIDTH, DEFAULT_TEXT_FILL, DEFAULT_FONT_SIZE, DEFAULT_FONT_FAMILY,
-    POLYLINE_HIT_TOLERANCE, textBoxOffsetX, tracePath,
+    POLYLINE_HIT_TOLERANCE, rectCornerRadius, textBoxOffsetX, textBoxOffsetY, tracePath,
 } from '@canvas-kit/core';
 import type { Image as ImageShape, Transform, Rect as SceneRect, Size, ResizeGeometry, OverlayItem } from '@canvas-kit/core';
 import type Konva from 'konva';
+
+/** The node that stands for a scene object: the one pressed, or the group it is drawn in (a text with a background). */
+function objectNodeOf(node: Konva.Node): Konva.Node {
+    for (let at: Konva.Node | null = node; at; at = at.getParent()) {
+        if (at.id()) return at;
+    }
+    return node;
+}
 
 const DEFAULT_MIN_SCALE = 0.1;
 const DEFAULT_MAX_SCALE = 10;
@@ -439,7 +447,7 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
     const handleStageMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
         const stage = e.target.getStage();
         if (!stage || e.target === stage || e.evt.button !== 0 || spaceHeldRef.current) return;
-        const clickedId = e.target.id();
+        const clickedId = objectNodeOf(e.target).id();
         if (!clickedId) return;
         if (e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey) {
             setSelectedIds(prev => (prev.includes(clickedId) ? prev.filter(id => id !== clickedId) : [...prev, clickedId]));
@@ -533,9 +541,11 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
                         {...commonProps}
                         width={obj.width}
                         height={obj.height}
+                        cornerRadius={rectCornerRadius(obj)}
                         fill={obj.fill}
                         stroke={isSelected ? '#0080ff' : obj.stroke}
                         strokeWidth={isSelected ? 2 : obj.strokeWidth || 0}
+                        dash={obj.dash}
                     />
                 );
             case 'circle':
@@ -547,6 +557,7 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
                         fill={obj.fill}
                         stroke={isSelected ? '#0080ff' : obj.stroke}
                         strokeWidth={isSelected ? 2 : obj.strokeWidth || 0}
+                        dash={obj.dash}
                     />
                 );
             case 'line':
@@ -575,16 +586,19 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
                         fill={obj.closed ? obj.fill : undefined}
                         stroke={isSelected ? '#0080ff' : obj.strokeWidth ? obj.stroke : undefined}
                         strokeWidth={isSelected ? 2 : obj.strokeWidth || 0}
+                        dash={obj.dash}
                     />
                 );
-            case 'text':
-                return (
+            case 'text': {
+                // x/y is the alignment anchor (geometry.ts), as on the canvas renderer; the box grows by padding around it.
+                const padding = Math.max(0, obj.padding ?? 0);
+                const anchor = { offsetX: textBoxOffsetX(obj) + padding, offsetY: textBoxOffsetY(obj) + padding };
+                const text = (
                     <Text
                         key={obj.id}
-                        {...commonProps}
-                        // x is the alignment anchor (geometry.ts), as on the canvas renderer.
-                        offsetX={textBoxOffsetX(obj)}
+                        {...(obj.background ? {} : { ...commonProps, ...anchor })}
                         text={obj.text}
+                        padding={padding}
                         fontSize={obj.fontSize ?? DEFAULT_FONT_SIZE}
                         fill={obj.fill || DEFAULT_TEXT_FILL}
                         fontFamily={obj.fontFamily ?? DEFAULT_FONT_FAMILY}
@@ -592,6 +606,15 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
                         strokeWidth={isSelected ? 1 : obj.strokeWidth || 0}
                     />
                 );
+                if (!obj.background) return text;
+                // A background is a tag sized to the text's box — one node that is pressed, dragged and selected.
+                return (
+                    <Label key={obj.id} {...commonProps} {...anchor}>
+                        <Tag fill={obj.background} />
+                        {text}
+                    </Label>
+                );
+            }
             case 'image':
                 return (
                     <KonvaImageNode

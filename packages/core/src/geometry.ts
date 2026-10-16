@@ -1,4 +1,4 @@
-import type { DrawingObject, Text } from './types';
+import type { DrawingObject, Rect, Text } from './types';
 
 /** An axis-aligned box in scene coordinates. */
 export interface BoundingBox {
@@ -48,6 +48,18 @@ export function textBoxOffsetX(text: Text): number {
     return ratio === 0 ? 0 : measureTextWidth(text) * ratio;
 }
 
+/** How far the text's top sits above its `y`: `y` is the top of the text for `top` (the default), its middle for
+ * `middle`, its bottom for `bottom`. */
+export function textBoxOffsetY(text: Text): number {
+    const ratio = text.verticalAlign === 'middle' ? 0.5 : text.verticalAlign === 'bottom' ? 1 : 0;
+    return (text.fontSize ?? DEFAULT_FONT_SIZE) * ratio;
+}
+
+/** A rect's corner radius as drawn: never negative, at most half its shorter side. */
+export function rectCornerRadius(rect: Rect): number {
+    return Math.max(0, Math.min(rect.cornerRadius ?? 0, Math.abs(rect.width) / 2, Math.abs(rect.height) / 2));
+}
+
 /** A line's or path's points in scene coordinates: `points` are relative to the object's `x`/`y`,
  * so moving the object moves the whole polyline. */
 export function polylinePoints(obj: { x: number; y: number; points: readonly number[] }): number[] {
@@ -59,8 +71,9 @@ export function polylinePoints(obj: { x: number; y: number; points: readonly num
  *
  * - `rect` / `image`: `x`/`y` is the top-left corner.
  * - `circle`: `x`/`y` is the center.
- * - `text`: `y` is the top of the text box (one line of `fontSize` height); `x` is its left edge,
- *   middle or right edge as `align` says (`textBoxOffsetX`).
+ * - `text`: one line of `fontSize` height; `x` is its left edge, middle or right edge as `align` says
+ *   (`textBoxOffsetX`), `y` its top, middle or bottom as `verticalAlign` says (`textBoxOffsetY`). The box grows by
+ *   `padding` on every side.
  * - `line` / `path`: the extent of the points, offset by `x`/`y`. No points → an empty box at `x`/`y`.
  */
 export function getObjectBounds(obj: DrawingObject): BoundingBox {
@@ -71,8 +84,13 @@ export function getObjectBounds(obj: DrawingObject): BoundingBox {
         case 'circle':
             return { x: obj.x - obj.radius, y: obj.y - obj.radius, width: obj.radius * 2, height: obj.radius * 2 };
         case 'text': {
-            const width = measureTextWidth(obj);
-            return { x: obj.x - textBoxOffsetX(obj), y: obj.y, width, height: obj.fontSize ?? DEFAULT_FONT_SIZE };
+            const padding = Math.max(0, obj.padding ?? 0);
+            return {
+                x: obj.x - textBoxOffsetX(obj) - padding,
+                y: obj.y - textBoxOffsetY(obj) - padding,
+                width: measureTextWidth(obj) + 2 * padding,
+                height: (obj.fontSize ?? DEFAULT_FONT_SIZE) + 2 * padding,
+            };
         }
         case 'line':
         case 'path': {

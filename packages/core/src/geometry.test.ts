@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getObjectBounds, containsPoint, isObjectInsideRect, isObjectIntersectingRect, polylinePoints, textBoxOffsetX } from './geometry';
+import { getObjectBounds, containsPoint, isObjectInsideRect, isObjectIntersectingRect, polylinePoints, rectCornerRadius, textBoxOffsetX, textBoxOffsetY } from './geometry';
 import { tracePath } from './trace-path';
 import { SelectionManager, SelectionUtils } from './selection';
 import { HitTest } from './hit-test';
@@ -87,6 +87,35 @@ describe('text alignment', () => {
         const text: DrawingObject = { type: 'text', x: 100, y: 0, text: 'Hello', fontSize: 10, align: 'right' };
         expect(containsPoint(text, 99, 5)).toBe(true);
         expect(containsPoint(text, 101, 5)).toBe(false);
+    });
+});
+
+describe('text vertical alignment and padding', () => {
+    const base = { type: 'text' as const, x: 100, y: 50, text: 'Hello', fontSize: 10 };
+
+    it('anchors the text box at y by verticalAlign: top, middle or bottom', () => {
+        expect(getObjectBounds(base).y).toBe(50);
+        expect(getObjectBounds({ ...base, verticalAlign: 'middle' }).y).toBe(45);
+        expect(getObjectBounds({ ...base, verticalAlign: 'bottom' }).y).toBe(40);
+        expect(textBoxOffsetY({ ...base, verticalAlign: 'bottom' })).toBe(10);
+    });
+
+    it('grows the box by padding on every side, the text staying where x/y put it', () => {
+        const plain = getObjectBounds({ ...base, align: 'center', verticalAlign: 'middle' });
+        const padded = getObjectBounds({ ...base, align: 'center', verticalAlign: 'middle', padding: 4 });
+        expect(padded).toEqual({ x: plain.x - 4, y: plain.y - 4, width: plain.width + 8, height: plain.height + 8 });
+        expect(containsPoint({ ...base, padding: 4 }, 98, 48)).toBe(true);
+        expect(containsPoint(base, 98, 48)).toBe(false);
+    });
+});
+
+describe('rectCornerRadius', () => {
+    const rect = { type: 'rect' as const, x: 0, y: 0, width: 40, height: 10 };
+    it('is the radius asked for, at most half the shorter side, never negative', () => {
+        expect(rectCornerRadius(rect)).toBe(0);
+        expect(rectCornerRadius({ ...rect, cornerRadius: 3 })).toBe(3);
+        expect(rectCornerRadius({ ...rect, cornerRadius: 30 })).toBe(5);
+        expect(rectCornerRadius({ ...rect, cornerRadius: -2 })).toBe(0);
     });
 });
 

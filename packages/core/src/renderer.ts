@@ -3,7 +3,7 @@ import type { Rect, Circle, Text, Path, Line, Image as ImageShape, DrawingObject
 import { IDENTITY_TRANSFORM } from './types';
 import type { ImageLoader } from './image-loader';
 import { defaultImageLoader } from './image-loader';
-import { DEFAULT_FONT_FAMILY, DEFAULT_FONT_SIZE, DEFAULT_LINE_STROKE, DEFAULT_LINE_WIDTH, DEFAULT_TEXT_FILL } from './geometry';
+import { DEFAULT_FONT_FAMILY, DEFAULT_FONT_SIZE, DEFAULT_LINE_STROKE, DEFAULT_LINE_WIDTH, DEFAULT_TEXT_FILL, getObjectBounds, rectCornerRadius, textBoxOffsetY } from './geometry';
 import { tracePath } from './trace-path';
 
 export interface CanvasKitRendererOptions {
@@ -113,14 +113,30 @@ export class CanvasKitRenderer {
         return this.ctx[property] === afterFirst;
     }
 
+    /** Strokes the current path, or the rect given, with the object's width and dash pattern. */
+    private strokeWith(obj: { dash?: number[] }, lineWidth: number, rect?: [number, number, number, number]) {
+        this.ctx.lineWidth = lineWidth;
+        if (obj.dash?.length) this.ctx.setLineDash(obj.dash);
+        if (rect) this.ctx.strokeRect(...rect);
+        else this.ctx.stroke();
+    }
+
     private drawRect(rect: Rect) {
+        const radius = rectCornerRadius(rect);
+        if (radius > 0) {
+            this.ctx.beginPath();
+            this.ctx.roundRect(rect.x, rect.y, rect.width, rect.height, radius);
+            if (this.paint('fillStyle', rect.fill)) this.ctx.fill();
+            if (rect.strokeWidth && this.paint('strokeStyle', rect.stroke)) this.strokeWith(rect, rect.strokeWidth);
+            return;
+        }
+
         if (this.paint('fillStyle', rect.fill)) {
             this.ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
         }
 
         if (rect.strokeWidth && this.paint('strokeStyle', rect.stroke)) {
-            this.ctx.lineWidth = rect.strokeWidth;
-            this.ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+            this.strokeWith(rect, rect.strokeWidth, [rect.x, rect.y, rect.width, rect.height]);
         }
     }
 
@@ -133,8 +149,7 @@ export class CanvasKitRenderer {
         }
 
         if (circle.strokeWidth && this.paint('strokeStyle', circle.stroke)) {
-            this.ctx.lineWidth = circle.strokeWidth;
-            this.ctx.stroke();
+            this.strokeWith(circle, circle.strokeWidth);
         }
     }
 
@@ -143,18 +158,24 @@ export class CanvasKitRenderer {
         const fontFamily = text.fontFamily ?? DEFAULT_FONT_FAMILY;
         const align = text.align || 'left';
 
+        if (this.paint('fillStyle', text.background)) {
+            const box = getObjectBounds(text);
+            this.ctx.fillRect(box.x, box.y, box.width, box.height);
+        }
+
         this.ctx.font = `${fontSize}px ${fontFamily}`;
         this.ctx.textAlign = align;
-        // x/y is the top of the text box, as in every other renderer (geometry.ts).
+        // Drawn from the text's top, wherever verticalAlign puts it, as in every other renderer (geometry.ts).
         this.ctx.textBaseline = 'top';
+        const top = text.y - textBoxOffsetY(text);
 
         if (this.paint('fillStyle', text.fill || DEFAULT_TEXT_FILL)) {
-            this.ctx.fillText(text.text, text.x, text.y);
+            this.ctx.fillText(text.text, text.x, top);
         }
 
         if (text.strokeWidth && this.paint('strokeStyle', text.stroke)) {
             this.ctx.lineWidth = text.strokeWidth;
-            this.ctx.strokeText(text.text, text.x, text.y);
+            this.ctx.strokeText(text.text, text.x, top);
         }
     }
 
@@ -170,8 +191,7 @@ export class CanvasKitRenderer {
         }
 
         if (path.strokeWidth && this.paint('strokeStyle', path.stroke)) {
-            this.ctx.lineWidth = path.strokeWidth;
-            this.ctx.stroke();
+            this.strokeWith(path, path.strokeWidth);
         }
     }
 
@@ -187,9 +207,7 @@ export class CanvasKitRenderer {
         }
 
         if (this.paint('strokeStyle', line.stroke || DEFAULT_LINE_STROKE)) {
-            this.ctx.lineWidth = line.strokeWidth || DEFAULT_LINE_WIDTH;
-            if (line.dash?.length) this.ctx.setLineDash(line.dash);
-            this.ctx.stroke();
+            this.strokeWith(line, line.strokeWidth || DEFAULT_LINE_WIDTH);
         }
     }
 

@@ -213,6 +213,49 @@ describe('CanvasKitRenderer object geometry', () => {
     expect(dashes).toEqual([[6, 4], []]);
   });
 
+  it('dashes the stroke of every shape that has one, not only lines', () => {
+    const canvas = document.createElement('canvas');
+    const scene = new Scene();
+    scene.add({ type: 'rect', x: 0, y: 0, width: 10, height: 10, stroke: 'black', strokeWidth: 1, dash: [4, 2] });
+    scene.add({ type: 'rect', x: 0, y: 0, width: 10, height: 10, stroke: 'black', strokeWidth: 1, dash: [3, 3], cornerRadius: 2 });
+    scene.add({ type: 'circle', x: 0, y: 0, radius: 5, stroke: 'black', strokeWidth: 1, dash: [1, 1] });
+    scene.add({ type: 'path', x: 0, y: 0, points: [0, 0, 5, 5], stroke: 'black', strokeWidth: 1, dash: [2, 1] });
+    scene.add({ type: 'rect', x: 0, y: 0, width: 10, height: 10, stroke: 'black', strokeWidth: 1 });
+    const ctx = canvas.getContext('2d')!;
+    const dashes: number[][] = [];
+    for (const name of ['stroke', 'strokeRect'] as const) {
+      const original = ctx[name].bind(ctx) as (...args: unknown[]) => void;
+      (ctx as unknown as Record<string, unknown>)[name] = (...args: unknown[]) => { dashes.push(ctx.getLineDash()); original(...args); };
+    }
+    new CanvasKitRenderer(canvas).render(scene);
+    expect(dashes).toEqual([[4, 2], [3, 3], [1, 1], [2, 1], []]);
+  });
+
+  it('rounds a rect’s corners, capped at half its shorter side, and draws square ones with fillRect', () => {
+    const calls = drawCallsFor(scene => {
+      scene.add({ type: 'rect', x: 0, y: 0, width: 40, height: 10, fill: 'red', cornerRadius: 30 });
+      scene.add({ type: 'rect', x: 50, y: 0, width: 10, height: 10, fill: 'red' });
+    });
+    const ctx = document.createElement('canvas').getContext('2d')!;
+    expect(typeof ctx.roundRect).toBe('function');
+    expect(calls.filter(c => c.type === 'fill')).toHaveLength(1);
+    expect(calls.filter(c => c.type === 'fillRect').map(c => c.props.x)).toEqual([50]);
+  });
+
+  it('draws a text from its top wherever verticalAlign puts y, over its background box', () => {
+    const canvas = document.createElement('canvas');
+    const scene = new Scene();
+    scene.add({ type: 'text', x: 10, y: 50, text: 'Hi', fontSize: 10, verticalAlign: 'middle', background: '#ffcc00', padding: 3 });
+    const ctx = canvas.getContext('2d')!;
+    const order: string[] = [];
+    const fillRect = ctx.fillRect.bind(ctx);
+    ctx.fillRect = (x: number, y: number, w: number, h: number) => { order.push(`box ${x},${y},${h}`); fillRect(x, y, w, h); };
+    const fillText = ctx.fillText.bind(ctx);
+    ctx.fillText = (text: string, x: number, y: number) => { order.push(`text ${x},${y}`); fillText(text, x, y); };
+    new CanvasKitRenderer(canvas).render(scene);
+    expect(order).toEqual(['box 7,42,16', 'text 10,45']);
+  });
+
   it('paints nothing for a colour the canvas cannot read, instead of the colour drawn before it', () => {
     const calls = drawCallsFor(scene => {
       scene.add({ type: 'rect', x: 0, y: 0, width: 10, height: 10, fill: 'rgb(255, 0, 0)' });

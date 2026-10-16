@@ -13,12 +13,17 @@ export interface Shape {
    * label). A designer selects it — a click, Tab, a marquee — so a host can edit what it stands for, and never drags,
    * nudges or transforms it. Viewers draw it as any other shape. */
   fixed?: boolean;
+  /** A dash pattern for the stroke — dash and gap lengths in scene units, as `setLineDash` takes them (`[6, 4]`).
+   * Absent or empty: solid. */
+  dash?: number[];
 }
 
 export interface Rect extends Shape {
   width: number;
   height: number;
   type: 'rect';
+  /** Rounds the corners — the radius in scene units, at most half the shorter side. Absent or 0: square corners. */
+  cornerRadius?: number;
 }
 
 export interface Circle extends Shape {
@@ -31,6 +36,13 @@ export interface Text extends Shape {
   fontSize?: number;
   fontFamily?: string;
   align?: 'left' | 'center' | 'right';
+  /** Which part of the text box `y` stands for: its top (the default), middle or bottom — as `align` does for `x`. */
+  verticalAlign?: 'top' | 'middle' | 'bottom';
+  /** Fills the text's box behind it — a label that reads over whatever lies under it. */
+  background?: string;
+  /** Space around the text inside its box, on every side, in scene units: the box — its background, its bounds,
+   * where a press hits it — grows by it, while the text stays where `x`/`y` put it. Default 0. */
+  padding?: number;
   type: 'text';
 }
 
@@ -44,8 +56,6 @@ export interface Path extends Shape {
 export interface Line extends Shape {
   points: number[]; // [x1, y1, x2, y2, ...]
   type: 'line';
-  /** A dash pattern — dash and gap lengths in scene units, as `setLineDash` takes them (`[6, 4]`). Absent or empty: solid. */
-  dash?: number[];
 }
 
 export interface Image extends Shape {

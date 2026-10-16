@@ -14,6 +14,15 @@ All notable changes to this package are documented here. The format follows
   shape.
 - `POLYLINE_HIT_TOLERANCE` — how far beyond half its stroke a point still hits a line or path (`containsPoint`), for
   a renderer that hit-tests lines itself.
+- `Rect.cornerRadius` — rounded corners, at most half the shorter side (`rectCornerRadius` gives the radius drawn).
+- `Text.verticalAlign` (`top` | `middle` | `bottom`) — which part of the text `y` stands for, as `align` does for `x`
+  (`textBoxOffsetY`); `Text.background` fills the text's box behind it; `Text.padding` grows the box — its background,
+  bounds and hit area — on every side while the text stays where `x`/`y` put it.
+
+### Changed
+
+- `dash` moved from `Line` to `Shape`: a rect, circle or path stroke takes a dash pattern too. A line's `dash` reads
+  as before.
 
 ## [0.6.0] - 2026-10-16
 
