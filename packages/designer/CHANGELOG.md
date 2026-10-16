@@ -6,6 +6,17 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-17
+
+### Added
+
+- A `fixedSize` shape (`@canvas-kit/core` `Shape.fixedSize`) is selected, dragged and nudged as any shape, but a
+  selection holding one takes no resize or rotate handles.
+
+### Changed
+
+- Needs `@canvas-kit/core` `^0.8.0`.
+
 ## [0.9.0] - 2026-10-16
 
 ### Added

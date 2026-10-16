@@ -6,6 +6,13 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-10-17
+
+### Changed
+
+- Needs `@canvas-kit/core` `^0.8.0`, so an app using the viewer with the designer or the core itself has one copy of
+  the core.
+
 ## [0.5.3] - 2026-10-16
 
 ### Changed

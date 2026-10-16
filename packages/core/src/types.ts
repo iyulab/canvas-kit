@@ -13,6 +13,10 @@ export interface Shape {
    * label). A designer selects it — a click, Tab, a marquee — so a host can edit what it stands for, and never drags,
    * nudges or transforms it. Viewers draw it as any other shape. */
   fixed?: boolean;
+  /** Moved, but never resized or rotated: a mark that sets only where something goes (a stamp, an icon of a fixed size,
+   * a box standing for a group of other shapes). A designer selects and drags it — and nudges it with the arrows — but
+   * gives it no resize or rotate handles. Viewers draw it as any other shape. */
+  fixedSize?: boolean;
   /** A dash pattern for the stroke — dash and gap lengths in scene units, as `setLineDash` takes them (`[6, 4]`).
    * Absent or empty: solid. */
   dash?: number[];

@@ -6,6 +6,14 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-17
+
+### Added
+
+- `Shape.fixedSize`: a shape moved but never resized or rotated — one that sets only where something goes (a stamp,
+  an icon of a fixed size, a box standing for a group of other shapes). A designer drags and nudges it, and gives it no
+  resize or rotate handles.
+
 ## [0.7.0] - 2026-10-16
 
 ### Added

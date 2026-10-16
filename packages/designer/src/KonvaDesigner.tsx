@@ -407,6 +407,8 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
         return () => history.removeEventListener(handleHistoryChange);
     }, [history, scene, onSceneChange]);
 
+    const reshapable = !selectedIds.some(id => scene.getObjects().some(obj => obj.id === id && obj.fixedSize));
+
     // Update transformer when selection changes
     useEffect(() => {
         const transformer = transformerRef.current;
@@ -668,7 +670,9 @@ export const KonvaDesigner = forwardRef<DesignerHandle, KonvaDesignerProps>(func
 
                     <Transformer
                         ref={transformerRef}
-                        rotateEnabled={true}
+                        // A selection holding a fixed-size shape moves as one, but takes no resize or rotate handles.
+                        rotateEnabled={reshapable}
+                        resizeEnabled={reshapable}
                         enabledAnchors={[
                             'top-left', 'top-center', 'top-right',
                             'middle-left', 'middle-right',
