@@ -6,6 +6,16 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `wheel: "modified"` — the wheel zooms only with Ctrl or ⌘ held (a trackpad pinch is one) and otherwise scrolls the
+  page, with a short line saying how to zoom (`wheelHint`). For a viewer in a page that scrolls.
+
+### Fixed
+
+- The wheel zooming the viewer also scrolled the page under it (and Ctrl + wheel zoomed the page): the wheel is now
+  listened to without the passive flag, so the default is prevented when the viewer zooms.
+
 ## [0.5.4] - 2026-10-17
 
 ### Changed

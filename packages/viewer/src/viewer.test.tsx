@@ -177,6 +177,28 @@ describe('Viewer', () => {
       expect(transform.scale).toBeLessThan(1);
     });
 
+    it('keeps the page from scrolling while the wheel zooms', () => {
+      render(<Viewer width={200} height={200} scene={new Scene()} />);
+      // fireEvent returns false when the event's default was prevented.
+      expect(fireEvent.wheel(screen.getByTestId('viewer-container'), { deltaY: -100, clientX: 50, clientY: 50 })).toBe(false);
+    });
+
+    it('with wheel "modified", lets an unmodified wheel scroll the page, saying how to zoom, and zooms with Ctrl or ⌘', () => {
+      render(<Viewer width={200} height={200} scene={new Scene()} wheel="modified" wheelHint="Hold Ctrl to zoom" />);
+      const container = screen.getByTestId('viewer-container');
+
+      mockRender.mockClear();
+      expect(fireEvent.wheel(container, { deltaY: -100, clientX: 50, clientY: 50 })).toBe(true);
+      expect(mockRender).not.toHaveBeenCalled();
+      expect(screen.getByTestId('viewer-wheel-hint').textContent).toBe('Hold Ctrl to zoom');
+
+      expect(fireEvent.wheel(container, { deltaY: -100, clientX: 50, clientY: 50, ctrlKey: true })).toBe(false);
+      expect(mockRender.mock.calls[mockRender.mock.calls.length - 1][1].scale).toBeGreaterThan(1);
+      expect(screen.queryByTestId('viewer-wheel-hint')).toBeNull();
+      fireEvent.wheel(container, { deltaY: 100, clientX: 50, clientY: 50, metaKey: true });
+      expect(mockRender.mock.calls[mockRender.mock.calls.length - 1][1].scale).toBeLessThan(1.2);
+    });
+
     it('clamps zoom to [minScale, maxScale]', () => {
       render(<Viewer width={200} height={200} scene={new Scene()} minScale={0.5} maxScale={2} />);
       const container = screen.getByTestId('viewer-container');

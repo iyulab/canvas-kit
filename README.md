@@ -85,7 +85,9 @@ import { Viewer } from '@canvas-kit/viewer';
   pan/zoom transform is kept; `onViewportResize` reports each new size, e.g. to keep a region
   fitted with `fitTransform`). The canvas is rendered at `devicePixelRatio` for sharp output.
 - **Pan/zoom** — wheel zooms around the pointer, drag pans. Pass `transform` +
-  `onTransformChange` to control it; `minScale`/`maxScale` bound the zoom.
+  `onTransformChange` to control it; `minScale`/`maxScale` bound the zoom. In a page that scrolls,
+  `wheel="modified"` zooms only on Ctrl/⌘ + wheel (or a pinch) and lets the plain wheel scroll the
+  page, showing `wheelHint` for a moment.
 - **Keyboard** — the viewer is focusable (`ariaLabel` names it): arrow keys pan (Shift for a
   larger step) and `+`/`-` zoom around the middle. Keys typed inside an overlay item are left alone.
 - **Taps** — `onTap` fires for a press and release that stays within `tapThreshold` (default

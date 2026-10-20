@@ -14,6 +14,8 @@ const DEFAULT_MIN_SCALE = 0.1;
 const DEFAULT_MAX_SCALE = 10;
 // wheel deltaY -> zoom factor. Negative deltaY (scroll up) zooms in.
 const ZOOM_SENSITIVITY = 0.001;
+// How long the line saying how to zoom stays, after the wheel scrolls past a viewer that zooms only with a modifier.
+const WHEEL_HINT_MS = 1500;
 // 이 거리(CSS px) 안에서 눌렀다 떼면 탭, 넘으면 팬.
 const DEFAULT_TAP_THRESHOLD = 4;
 // Keyboard: an arrow press pans this far (CSS px), Shift multiplies it; +/- zoom by this factor.
@@ -100,6 +102,19 @@ export interface ViewerProps {
    * a rect fitted (`fitTransform`) as the viewport changes, for as long as it wants to.
    */
   onViewportResize?: (size: Size) => void;
+  /**
+   * What the wheel does over the viewer. `"zoom"` (the default): it zooms, and the page under the viewer does not
+   * scroll. `"modified"`: it zooms only with Ctrl or ⌘ held (a trackpad pinch is one), and otherwise scrolls the page
+   * as if the viewer were not there — for a viewer placed in a page that scrolls, where a wheel turned to scroll past
+   * it should not get caught zooming it (the "cooperative" gestures of embedded maps). Drag and the keys still pan
+   * and zoom.
+   */
+  wheel?: 'zoom' | 'modified';
+  /**
+   * With `wheel: "modified"`, the line shown briefly over the viewer when the wheel scrolls past it unmodified.
+   * Default "Ctrl + scroll to zoom" ("⌘ + scroll to zoom" on a Mac).
+   */
+  wheelHint?: string;
   /** 휠 줌의 최소/최대 배율. 기본 0.1~10. `fitToRect`도 이 범위를 따른다. */
   minScale?: number;
   maxScale?: number;
@@ -201,6 +216,8 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
     className,
     style,
     ariaLabel = 'Canvas',
+    wheel = 'zoom',
+    wheelHint,
   },
   ref
 ) {
@@ -287,18 +304,41 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
     [width, height, fit]
   );
 
-  const handleWheel = useCallback(
-    (e: React.WheelEvent<HTMLDivElement>) => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      const px = e.clientX - (rect?.left ?? 0);
-      const py = e.clientY - (rect?.top ?? 0);
+  // The wheel is listened to natively, not through React: React's wheel listener is passive, so it could not keep the
+  // page from scrolling while the wheel zooms the viewer, nor the browser from zooming the page on Ctrl + wheel.
+  const [hinting, setHinting] = useState(false);
+  const handleWheel = (e: WheelEvent) => {
+    if (wheel === 'modified' && !e.ctrlKey && !e.metaKey) {
+      setHinting(true);
+      return;
+    }
+    e.preventDefault();
+    setHinting(false);
+    const rect = containerRef.current?.getBoundingClientRect();
+    const px = e.clientX - (rect?.left ?? 0);
+    const py = e.clientY - (rect?.top ?? 0);
 
-      // 포인터 아래의 씬 좌표가 줌 전후로 화면상 같은 위치에 남는다
-      const factor = Math.exp(-e.deltaY * ZOOM_SENSITIVITY);
-      applyTransform(zoomAt(transform, { x: px, y: py }, factor, { minScale, maxScale }));
-    },
-    [transform, minScale, maxScale, applyTransform]
-  );
+    // 포인터 아래의 씬 좌표가 줌 전후로 화면상 같은 위치에 남는다
+    const factor = Math.exp(-e.deltaY * ZOOM_SENSITIVITY);
+    applyTransform(zoomAt(transform, { x: px, y: py }, factor, { minScale, maxScale }));
+  };
+  // The latest handler, kept current after each commit (as `onViewportResizeRef`), so the listener is added once.
+  const handleWheelRef = useRef(handleWheel);
+  useLayoutEffect(() => {
+    handleWheelRef.current = handleWheel;
+  });
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+    const listener = (e: WheelEvent) => handleWheelRef.current(e);
+    element.addEventListener('wheel', listener, { passive: false });
+    return () => element.removeEventListener('wheel', listener);
+  }, []);
+  useEffect(() => {
+    if (!hinting) return;
+    const timer = setTimeout(() => setHinting(false), WHEEL_HINT_MS);
+    return () => clearTimeout(timer);
+  }, [hinting]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -413,7 +453,6 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
         background: 'var(--ck-viewer-background, transparent)',
         ...style,
       }}
-      onWheel={handleWheel}
       onKeyDown={handleKeyDown}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -478,6 +517,31 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
           pointerEvents: 'none',
         }}
       />
+      {/* Pointer users only — drag and the keys need no modifier, so a screen reader is not told. */}
+      {hinting && (
+        <div
+          data-testid="viewer-wheel-hint"
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'grid',
+            placeItems: 'center',
+            background: 'rgb(0 0 0 / 35%)',
+            color: '#fff',
+            font: '600 14px/1.4 system-ui, sans-serif',
+            pointerEvents: 'none',
+          }}
+        >
+          {wheelHint ?? defaultWheelHint()}
+        </div>
+      )}
     </div>
   );
 });
+
+/** "Ctrl + scroll to zoom", with ⌘ on a Mac. */
+function defaultWheelHint(): string {
+  const mac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform ?? '');
+  return `${mac ? '⌘' : 'Ctrl'} + scroll to zoom`;
+}
