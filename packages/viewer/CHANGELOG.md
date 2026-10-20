@@ -6,6 +6,8 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-20
+
 ### Added
 
 - `wheel: "modified"` — the wheel zooms only with Ctrl or ⌘ held (a trackpad pinch is one) and otherwise scrolls the
