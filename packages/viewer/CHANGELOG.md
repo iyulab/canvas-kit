@@ -6,6 +6,8 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-23
+
 ### Fixed
 
 - Dragging to pan selected the text of the overlay items under the pointer. The viewer now sets `user-select: none`
