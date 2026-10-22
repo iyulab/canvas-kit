@@ -281,6 +281,34 @@ describe('Viewer', () => {
       expect(transformAfterRerender).toEqual(reported);
     });
   });
+  describe('text selection', () => {
+    it('keeps text on the pannable surface from being selected', () => {
+      render(<Viewer width={200} height={200} />);
+      expect(screen.getByTestId('viewer-container').style.userSelect).toBe('none');
+    });
+
+    it('lets the host give text selection back through style', () => {
+      render(<Viewer width={200} height={200} style={{ userSelect: 'text' }} />);
+      expect(screen.getByTestId('viewer-container').style.userSelect).toBe('text');
+    });
+
+    it('drops a selection begun before the drag became a pan', () => {
+      const removeAllRanges = vi.fn();
+      const spy = vi.spyOn(window, 'getSelection').mockReturnValue({ removeAllRanges } as unknown as Selection);
+      render(<Viewer width={200} height={200} />);
+      const container = screen.getByTestId('viewer-container');
+
+      fireEvent.pointerDown(container, { clientX: 100, clientY: 100, pointerId: 1 });
+      fireEvent.pointerMove(container, { clientX: 102, clientY: 101, pointerId: 1 });
+      expect(removeAllRanges).not.toHaveBeenCalled();
+      fireEvent.pointerMove(container, { clientX: 140, clientY: 100, pointerId: 1 });
+      expect(removeAllRanges).toHaveBeenCalledTimes(1);
+      fireEvent.pointerMove(container, { clientX: 150, clientY: 100, pointerId: 1 });
+      expect(removeAllRanges).toHaveBeenCalledTimes(1);
+      spy.mockRestore();
+    });
+  });
+
   describe('tap (press and release without dragging)', () => {
     // jsdom의 getBoundingClientRect는 (0,0)에 놓이므로 client 좌표 = 뷰 좌표.
     it('reports the tapped point in scene coordinates under the current transform', () => {

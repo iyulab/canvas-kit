@@ -384,6 +384,8 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
       if (!state.panning) {
         if (Math.hypot(dx, dy) <= tapThreshold) return;
         state.panning = true;
+        // 문턱 전에 오버레이 글에서 시작된 선택은 지운다 — 남겨 두면 팬하는 동안 계속 늘어난다.
+        globalThis.getSelection?.()?.removeAllRanges();
         // 캡처는 팬이 시작된 뒤에만 — 누르는 순간 캡처하면 브라우저가 click 대상을 컨테이너로
         // 바꿔 오버레이 아이템(버튼 등)의 click이 발화하지 않는다. 팬 중엔 캡처 덕에 포인터가
         // 컨테이너 밖으로 나가도 계속 따라가고, 끝난 드래그는 아이템 click으로 이어지지 않는다.
@@ -450,6 +452,10 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
         height: heightProp ?? '100%',
         overflow: 'hidden',
         touchAction: 'none',
+        // 끌면 팬이 되는 면이라 글이 선택되지 않게 한다(지도 · 캔버스 라이브러리의 관례). 글을 고르게 할
+        // 아이템은 자기 요소에 `user-select: text`를, 뷰어 전체는 `style`로 되돌린다.
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
         background: 'var(--ck-viewer-background, transparent)',
         ...style,
       }}

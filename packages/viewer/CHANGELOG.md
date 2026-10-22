@@ -6,6 +6,12 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Dragging to pan selected the text of the overlay items under the pointer. The viewer now sets `user-select: none`
+  (an item that should keep its text selectable sets `user-select: text` on itself, or the host passes it in `style`),
+  and a selection begun before the drag became a pan is dropped when the pan starts.
+
 ## [0.6.0] - 2026-10-20
 
 ### Added
