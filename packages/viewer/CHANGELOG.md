@@ -6,6 +6,18 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A tap can be made from the keyboard. With the viewer focused and an `onTap` set, Enter or Space taps the point at the
+  middle of the viewport — `pointerType: "keyboard"`, `client` the middle of the viewer — and the arrow keys and `+` / `-`
+  already bring the scene under that point. Shift is carried as on a click, and Ctrl or ⌘ with Enter; a held key taps once.
+  While the keyboard is in use a small aim mark is drawn at that point (`--ck-viewer-aim` for its ink,
+  `--ck-viewer-aim-halo` for the light edge that keeps it readable on any scene). `aria-keyshortcuts` lists `Enter` and
+  `Space` only when there is an `onTap`.
+
+  An `onTap` that already exists now also receives these keyboard taps; tell them apart by `pointerType`. Without an
+  `onTap`, nothing changes and the page keeps Enter and Space.
+
 ## [0.6.1] - 2026-10-23
 
 ### Fixed

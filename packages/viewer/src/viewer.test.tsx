@@ -712,6 +712,165 @@ describe('Viewer', () => {
     });
   });
 
+  describe('tap from the keyboard', () => {
+    // jsdom's getBoundingClientRect sits at (0, 0), so client = view coordinates; the middle of 200 x 100 is (100, 50).
+    it.each([
+      ['Enter', 'Enter'],
+      ['Space', ' '],
+    ])('%s taps the point at the middle of the viewport', (_name, key) => {
+      const onTap = vi.fn();
+      render(<Viewer width={200} height={100} transform={{ x: 10, y: 20, scale: 2 }} onTap={onTap} />);
+      fireEvent.keyDown(screen.getByTestId('viewer-container'), { key });
+
+      expect(onTap).toHaveBeenCalledTimes(1);
+      expect(onTap.mock.calls[0][0]).toEqual({
+        scene: { x: 45, y: 15 },
+        client: { x: 100, y: 50 },
+        button: 0,
+        pointerType: 'keyboard',
+        altKey: false,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+      });
+    });
+
+    it('taps the point the arrow keys brought under the middle', () => {
+      const onTap = vi.fn();
+      render(<Viewer width={200} height={100} onTap={onTap} />);
+      const container = screen.getByTestId('viewer-container');
+
+      fireEvent.keyDown(container, { key: 'ArrowRight' }); // the scene moves 40 px left
+      fireEvent.keyDown(container, { key: 'Enter' });
+      expect(onTap.mock.lastCall![0].scene).toEqual({ x: 140, y: 50 });
+    });
+
+    it('carries Shift on both keys, and Ctrl or ⌘ on Enter, as a click would', () => {
+      const onTap = vi.fn();
+      render(<Viewer width={200} height={100} onTap={onTap} />);
+      const container = screen.getByTestId('viewer-container');
+
+      fireEvent.keyDown(container, { key: 'Enter', shiftKey: true });
+      expect(onTap.mock.lastCall![0]).toMatchObject({ shiftKey: true, ctrlKey: false });
+      fireEvent.keyDown(container, { key: 'Enter', ctrlKey: true });
+      expect(onTap.mock.lastCall![0]).toMatchObject({ ctrlKey: true, metaKey: false });
+      fireEvent.keyDown(container, { key: 'Enter', metaKey: true });
+      expect(onTap.mock.lastCall![0]).toMatchObject({ metaKey: true });
+      fireEvent.keyDown(container, { key: ' ', shiftKey: true });
+      expect(onTap.mock.lastCall![0]).toMatchObject({ shiftKey: true });
+      expect(onTap).toHaveBeenCalledTimes(4);
+    });
+
+    it('leaves Alt+Enter and Ctrl/⌘+Space to the browser and the system', () => {
+      const onTap = vi.fn();
+      render(<Viewer width={200} height={100} onTap={onTap} />);
+      const container = screen.getByTestId('viewer-container');
+
+      expect(fireEvent.keyDown(container, { key: 'Enter', altKey: true })).toBe(true);
+      expect(fireEvent.keyDown(container, { key: ' ', ctrlKey: true })).toBe(true);
+      expect(fireEvent.keyDown(container, { key: ' ', metaKey: true })).toBe(true);
+      expect(onTap).not.toHaveBeenCalled();
+    });
+
+    it('taps once per press — a held key does not repeat', () => {
+      const onTap = vi.fn();
+      render(<Viewer width={200} height={100} onTap={onTap} />);
+      const container = screen.getByTestId('viewer-container');
+
+      fireEvent.keyDown(container, { key: 'Enter' });
+      fireEvent.keyDown(container, { key: 'Enter', repeat: true });
+      fireEvent.keyDown(container, { key: 'Enter', repeat: true });
+      expect(onTap).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the page from scrolling for the Space it handles', () => {
+      render(<Viewer width={200} height={100} onTap={vi.fn()} />);
+      expect(fireEvent.keyDown(screen.getByTestId('viewer-container'), { key: ' ' })).toBe(false);
+    });
+
+    it('does nothing without onTap — Space still scrolls the page, and the keys are not announced', () => {
+      render(<Viewer width={200} height={100} />);
+      const container = screen.getByTestId('viewer-container');
+
+      expect(fireEvent.keyDown(container, { key: ' ' })).toBe(true);
+      expect(fireEvent.keyDown(container, { key: 'Enter' })).toBe(true);
+      expect(container.getAttribute('aria-keyshortcuts')!.split(' ')).not.toEqual(expect.arrayContaining(['Enter']));
+      expect(container.getAttribute('aria-keyshortcuts')!.split(' ')).not.toEqual(expect.arrayContaining(['Space']));
+    });
+
+    it('announces Enter and Space when there is an onTap to receive them', () => {
+      render(<Viewer width={200} height={100} onTap={vi.fn()} />);
+      const keys = screen.getByTestId('viewer-container').getAttribute('aria-keyshortcuts')!.split(' ');
+      expect(keys).toEqual(expect.arrayContaining(['Enter', 'Space', 'ArrowLeft', 'Plus']));
+    });
+
+    it('ignores Enter typed inside an overlay item', () => {
+      const onTap = vi.fn();
+      render(
+        <Viewer
+          width={200}
+          height={100}
+          onTap={onTap}
+          overlays={[{ id: 'w', x: 0, y: 0, width: 50, height: 20, content: <button>go</button> }]}
+        />
+      );
+      fireEvent.keyDown(screen.getByText('go'), { key: 'Enter' });
+      expect(onTap).not.toHaveBeenCalled();
+    });
+
+    describe('the aim mark', () => {
+      it('is not drawn without onTap, nor before the keyboard is used', () => {
+        const { unmount } = render(<Viewer width={200} height={100} />);
+        fireEvent.keyDown(screen.getByTestId('viewer-container'), { key: 'ArrowRight' });
+        expect(screen.queryByTestId('viewer-aim')).not.toBeInTheDocument();
+        unmount();
+
+        render(<Viewer width={200} height={100} onTap={vi.fn()} />);
+        expect(screen.queryByTestId('viewer-aim')).not.toBeInTheDocument();
+      });
+
+      it('shows at the middle once a key it handles is pressed, hidden from assistive technology and the pointer', () => {
+        render(<Viewer width={200} height={100} onTap={vi.fn()} />);
+        fireEvent.keyDown(screen.getByTestId('viewer-container'), { key: 'ArrowRight' });
+
+        const aim = screen.getByTestId('viewer-aim');
+        expect(aim).toHaveAttribute('aria-hidden', 'true');
+        expect(aim.style.pointerEvents).toBe('none');
+        expect(aim.style.left).toBe('100px');
+        expect(aim.style.top).toBe('50px');
+      });
+
+      it('goes away when the pointer is used or focus leaves', () => {
+        render(<Viewer width={200} height={100} onTap={vi.fn()} />);
+        const container = screen.getByTestId('viewer-container');
+
+        fireEvent.keyDown(container, { key: 'Enter' });
+        expect(screen.getByTestId('viewer-aim')).toBeInTheDocument();
+        fireEvent.pointerDown(container, { clientX: 5, clientY: 5, pointerId: 1 });
+        expect(screen.queryByTestId('viewer-aim')).not.toBeInTheDocument();
+
+        fireEvent.keyDown(container, { key: 'Enter' });
+        expect(screen.getByTestId('viewer-aim')).toBeInTheDocument();
+        fireEvent.blur(container);
+        expect(screen.queryByTestId('viewer-aim')).not.toBeInTheDocument();
+      });
+
+      it('shows on arrival by keyboard (:focus-visible) and not on arrival by pointer', () => {
+        render(<Viewer width={200} height={100} onTap={vi.fn()} />);
+        const container = screen.getByTestId('viewer-container');
+        const matches = vi.spyOn(container, 'matches');
+
+        matches.mockReturnValue(false);
+        fireEvent.focus(container);
+        expect(screen.queryByTestId('viewer-aim')).not.toBeInTheDocument();
+
+        matches.mockReturnValue(true);
+        fireEvent.focus(container);
+        expect(screen.getByTestId('viewer-aim')).toBeInTheDocument();
+      });
+    });
+  });
+
   describe('chrome', () => {
     it('does not put a border on the canvas itself (it would grow the canvas past its box)', () => {
       render(<Viewer width={100} height={100} />);

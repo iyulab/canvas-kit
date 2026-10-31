@@ -28,6 +28,10 @@ const KEY_PAN: Record<string, [number, number]> = {
   ArrowUp: [0, 1],
   ArrowDown: [0, -1],
 };
+const KEY_SHORTCUTS = 'ArrowLeft ArrowRight ArrowUp ArrowDown Plus = -';
+// The aim mark: a cross with an open middle (so the point it names stays visible), centred in a 28 px box.
+const AIM_SIZE = 28;
+const AIM_PATH = 'M14 2v8M14 18v8M2 14h8M18 14h8';
 // 오버레이 아이템 DOM 표식 — 그 위에서 시작한 포인터는 탭으로 보고하지 않는다(아이템 몫).
 const OVERLAY_ATTRIBUTE = 'data-ck-overlay';
 
@@ -50,9 +54,10 @@ export type { Transform };
 export interface ViewerTapEvent {
   /** The tapped point in scene coordinates, under the transform at the time of the tap. */
   scene: Point;
-  /** The tapped point in client (viewport) coordinates, as on the DOM event. */
+  /** The tapped point in client (viewport) coordinates, as on the DOM event (for a keyboard tap, the middle of the viewer). */
   client: Point;
   button: number;
+  /** The DOM `pointerType` of a press (`"mouse"`, `"touch"`, `"pen"`), or `"keyboard"` for a tap made with Enter or Space. */
   pointerType: string;
   altKey: boolean;
   ctrlKey: boolean;
@@ -127,6 +132,13 @@ export interface ViewerProps {
    * Called when the pointer is pressed and released without moving past `tapThreshold`.
    * Presses that start on an overlay item are left to that item and not reported here — unless the
    * item is display-only (`interactive: false`).
+   *
+   * Also called from the keyboard, so a selection made by tapping is open to someone who cannot use a
+   * pointer: with the viewer itself focused, Enter or Space taps the point at the middle of the viewport
+   * (`pointerType: "keyboard"`), and the arrow keys and +/- move and zoom the scene under it. While
+   * the keyboard is in use a small aim mark is drawn at that point (`--ck-viewer-aim`,
+   * `--ck-viewer-aim-halo`). Shift, and Ctrl or ⌘ with Enter, are carried as they are on a click; a held
+   * key taps once. Without `onTap` none of this is active and the keys are left to the page.
    */
   onTap?: (event: ViewerTapEvent) => void;
   /** Movement (CSS px) below which a press counts as a tap rather than a pan. Default 4. */
@@ -340,10 +352,36 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
     return () => clearTimeout(timer);
   }, [hinting]);
 
+  // Whether the aim mark is drawn: the keyboard is the way the viewer is being used. It starts when the viewer is
+  // focused by keyboard or a key it handles is pressed, and ends when the pointer is used or focus leaves.
+  const [aiming, setAiming] = useState(false);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       // Only keys pressed with the viewer itself focused — not ones typed into an overlay item.
-      if (e.target !== e.currentTarget || e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.target !== e.currentTarget || e.altKey) return;
+      // Enter taps the middle of the viewport, as a click on it would; Ctrl/⌘ ride along for a multi-select. Space takes
+      // Shift only — Ctrl/⌘+Space belongs to the system. Without an `onTap` the keys are not ours and the page keeps them.
+      const isEnter = e.key === 'Enter';
+      if (onTap && (isEnter || (e.key === ' ' && !e.ctrlKey && !e.metaKey))) {
+        e.preventDefault();
+        setAiming(true);
+        if (e.repeat) return; // a held key taps once, as one press does
+        const rect = containerRef.current?.getBoundingClientRect();
+        const view = { x: width / 2, y: height / 2 };
+        onTap({
+          scene: viewToScene(transform, view),
+          client: { x: (rect?.left ?? 0) + view.x, y: (rect?.top ?? 0) + view.y },
+          button: 0,
+          pointerType: 'keyboard',
+          altKey: false,
+          ctrlKey: e.ctrlKey,
+          metaKey: e.metaKey,
+          shiftKey: e.shiftKey,
+        });
+        return;
+      }
+      if (e.ctrlKey || e.metaKey) return;
       const pan = KEY_PAN[e.key];
       if (pan) {
         const step = KEY_PAN_STEP * (e.shiftKey ? KEY_PAN_FAST : 1);
@@ -354,13 +392,30 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
       } else {
         return;
       }
+      setAiming(true);
       e.preventDefault();
     },
-    [transform, width, height, minScale, maxScale, applyTransform]
+    [transform, width, height, minScale, maxScale, applyTransform, onTap]
   );
+
+  const handleFocus = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return;
+    let byKeyboard = false;
+    try {
+      byKeyboard = e.currentTarget.matches(':focus-visible');
+    } catch {
+      // an engine without :focus-visible — the first key pressed starts the aim mark instead
+    }
+    setAiming(byKeyboard);
+  }, []);
+
+  const handleBlur = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) setAiming(false);
+  }, []);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
+      setAiming(false);
       const target = e.target as Element | null;
       pointerStateRef.current = {
         pointerId: e.pointerId,
@@ -444,7 +499,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
       tabIndex={0}
       role="region"
       aria-label={ariaLabel}
-      aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Plus = -"
+      aria-keyshortcuts={onTap ? `${KEY_SHORTCUTS} Enter Space` : KEY_SHORTCUTS}
       className={className}
       style={{
         position: 'relative',
@@ -460,6 +515,8 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
         ...style,
       }}
       onKeyDown={handleKeyDown}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -523,6 +580,28 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
           pointerEvents: 'none',
         }}
       />
+      {/* Where Enter or Space taps — the point the arrow keys and +/- bring the scene under. Light halo under a dark ink so it
+          reads on any scene; shown only while the keyboard is the way the viewer is used. */}
+      {onTap && aiming && (
+        <div
+          data-testid="viewer-aim"
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            left: width / 2,
+            top: height / 2,
+            width: AIM_SIZE,
+            height: AIM_SIZE,
+            transform: 'translate(-50%, -50%)',
+            pointerEvents: 'none',
+          }}
+        >
+          <svg width={AIM_SIZE} height={AIM_SIZE} viewBox="0 0 28 28" fill="none" style={{ display: 'block' }}>
+            <path d={AIM_PATH} stroke="var(--ck-viewer-aim-halo, #fff)" strokeWidth="5" strokeLinecap="round" />
+            <path d={AIM_PATH} stroke="var(--ck-viewer-aim, #111)" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </div>
+      )}
       {/* Pointer users only — drag and the keys need no modifier, so a screen reader is not told. */}
       {hinting && (
         <div
