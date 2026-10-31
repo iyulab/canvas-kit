@@ -94,11 +94,12 @@ jobs:
 
       - uses: pnpm/action-setup@v6
 
+      # No `cache: pnpm`: this job installs only when a version is not yet on npm, and with nothing to install a cache miss
+      # (any push that changes pnpm-lock.yaml) made setup-node's post step fail trying to save a store that was never made.
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
           registry-url: https://registry.npmjs.org
-          cache: pnpm
 
       # Only npm's 404 means "not published yet"; any other failure (registry down, rate limit) stops
       # here instead of trying to publish a version that may already exist.
