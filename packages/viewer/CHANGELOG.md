@@ -6,6 +6,8 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-01
+
 ### Added
 
 - A tap can be made from the keyboard. With the viewer focused and an `onTap` set, Enter or Space taps the point at the
