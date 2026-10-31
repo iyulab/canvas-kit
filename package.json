@@ -44,7 +44,7 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
-    "oxlint": "^1.86.0",
+    "oxlint": "^1.90.0",
     "typescript": "^6.0.3"
   },
   "pnpm": {
