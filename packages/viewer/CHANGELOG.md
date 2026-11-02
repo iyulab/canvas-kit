@@ -6,6 +6,8 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-03
+
 ### Added
 
 - `cullOverlays`: leaves out the overlay items that are well outside the view, so a scene with thousands of them stays
