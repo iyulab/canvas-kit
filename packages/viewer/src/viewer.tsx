@@ -1,5 +1,6 @@
 import React, {
   forwardRef,
+  memo,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -46,6 +47,11 @@ export interface ViewerOverlayItem extends OverlayItem {
    * so a press on it is the viewer's — a tap, the start of a pan — as if it were not there.
    */
   interactive?: boolean;
+  /**
+   * With the viewer's `cullOverlays`, `false` keeps this item rendered wherever it is — for content that must not be
+   * torn down and built again as the view moves (a frame that holds state, a video that is playing). Default `true`.
+   */
+  cull?: boolean;
 }
 
 export type { Transform };
@@ -129,6 +135,17 @@ export interface ViewerProps {
    */
   overlays?: ViewerOverlayItem[];
   /**
+   * Leaves out the overlay items that are well outside the view, so a scene with thousands of them stays smooth to pan,
+   * zoom and update: only the items in view and a margin around it are in the page, the rest are not rendered at all
+   * (their content is built again when they come into the margin). Off by default — an item outside the view is then
+   * still in the page for a screen reader and the Tab key; with this on it is not until the view reaches it.
+   *
+   * `margin` is how far beyond the view an item is kept, as a fraction of the viewport size (default 0.5, so a pan of up
+   * to half a view shows no gap). An item with `cull: false`, and the item that holds the focus, are always kept.
+   * Nothing is left out until the viewport has a size.
+   */
+  cullOverlays?: boolean | { margin?: number };
+  /**
    * Called when the pointer is pressed and released without moving past `tapThreshold`.
    * Presses that start on an overlay item are left to that item and not reported here — unless the
    * item is display-only (`interactive: false`).
@@ -156,6 +173,99 @@ export interface ViewerProps {
    */
   ariaLabel?: string;
 }
+
+// One overlay item's box. Memoized on the item, so a pan or zoom — which re-renders the viewer for its new transform —
+// does not rebuild and re-diff the box of every item: the layer's own transform is what moves them.
+const OverlayBox = memo(function OverlayBox({
+  overlay,
+  onFocusItem,
+}: {
+  overlay: ViewerOverlayItem;
+  onFocusItem?: (id: string | null) => void;
+}) {
+  const interactive = overlay.interactive ?? true;
+  return (
+    <div
+      data-testid={`overlay-${overlay.id}`}
+      // Only an interactive item claims the presses that start on it; a display-only one is
+      // also unmarked, so a press its content does receive still counts as the viewer's.
+      {...(interactive && { [OVERLAY_ATTRIBUTE]: '' })}
+      style={{
+        position: 'absolute',
+        left: overlay.x,
+        top: overlay.y,
+        width: overlay.width,
+        height: overlay.height,
+        pointerEvents: interactive ? 'auto' : 'none',
+      }}
+      // Said only when items are left out by position, to keep the one that holds the focus.
+      {...(onFocusItem && {
+        onFocus: () => onFocusItem(overlay.id),
+        onBlur: (e: React.FocusEvent<HTMLDivElement>) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onFocusItem(null);
+        },
+      })}
+    >
+      {overlay.content}
+    </div>
+  );
+});
+
+function sameItems(a: ViewerOverlayItem[], b: ViewerOverlayItem[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+// The boxes of a list of items. Memoized on the list's items, so the viewer re-rendering for a new transform — with the
+// same `overlays`, or a list of the same items — costs nothing per item.
+const OverlayList = memo(
+  function OverlayList({
+    overlays,
+    onFocusItem,
+  }: {
+    overlays: ViewerOverlayItem[];
+    onFocusItem?: (id: string | null) => void;
+  }) {
+    return (
+      <>
+        {overlays.map(overlay => (
+          <OverlayBox key={overlay.id} overlay={overlay} onFocusItem={onFocusItem} />
+        ))}
+      </>
+    );
+  },
+  (prev, next) => prev.onFocusItem === next.onFocusItem && sameItems(prev.overlays, next.overlays)
+);
+
+const DEFAULT_CULL_MARGIN = 0.5;
+
+/** The items that are in the view or within `margin` (a fraction of the viewport) of it, plus the ones that opt out. */
+function itemsNearView(
+  overlays: ViewerOverlayItem[],
+  transform: Transform,
+  size: Size,
+  margin: number,
+  keptId: string | null
+): ViewerOverlayItem[] {
+  const scale = transform.scale;
+  if (!(scale > 0) || !(size.width > 0) || !(size.height > 0)) return overlays;
+  const reachX = (size.width * margin) / scale;
+  const reachY = (size.height * margin) / scale;
+  const left = -transform.x / scale - reachX;
+  const top = -transform.y / scale - reachY;
+  const right = (size.width - transform.x) / scale + reachX;
+  const bottom = (size.height - transform.y) / scale + reachY;
+  return overlays.filter(
+    o =>
+      o.cull === false ||
+      o.id === keptId ||
+      (o.x + o.width >= left && o.x <= right && o.y + o.height >= top && o.y <= bottom)
+  );
+}
+
+const NO_OVERLAYS: ViewerOverlayItem[] = [];
 
 // 서버 렌더링에서는 layout effect가 돌지 않고 React 18이 경고한다 — 브라우저에서만 layout effect.
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
@@ -222,7 +332,8 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
     onViewportResize,
     minScale = DEFAULT_MIN_SCALE,
     maxScale = DEFAULT_MAX_SCALE,
-    overlays = [],
+    overlays = NO_OVERLAYS,
+    cullOverlays = false,
     onTap,
     tapThreshold = DEFAULT_TAP_THRESHOLD,
     className,
@@ -251,6 +362,13 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
     if (width > 0 && height > 0) onViewportResizeRef.current?.({ width, height });
   }, [width, height]);
   const pixelRatio = useDevicePixelRatio();
+  // The item that holds the focus is kept even when its place is outside the view — culling must not take the focus away.
+  const [focusedItem, setFocusedItem] = useState<string | null>(null);
+  const culling = cullOverlays !== false;
+  const cullMargin = typeof cullOverlays === 'object' ? (cullOverlays.margin ?? DEFAULT_CULL_MARGIN) : DEFAULT_CULL_MARGIN;
+  const rendered = culling
+    ? itemsNearView(overlays, transform, { width, height }, cullMargin, focusedItem)
+    : overlays;
 
   // 누른 시점의 포인터 위치·transform과 팬 진입 여부 (렌더를 유발하지 않아야 함)
   const pointerStateRef = useRef<PointerState | null>(null);
@@ -545,28 +663,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
           pointerEvents: 'none',
         }}
       >
-        {overlays.map(overlay => {
-          const interactive = overlay.interactive ?? true;
-          return (
-            <div
-              key={overlay.id}
-              data-testid={`overlay-${overlay.id}`}
-              // Only an interactive item claims the presses that start on it; a display-only one is
-              // also unmarked, so a press its content does receive still counts as the viewer's.
-              {...(interactive && { [OVERLAY_ATTRIBUTE]: '' })}
-              style={{
-                position: 'absolute',
-                left: overlay.x,
-                top: overlay.y,
-                width: overlay.width,
-                height: overlay.height,
-                pointerEvents: interactive ? 'auto' : 'none',
-              }}
-            >
-              {overlay.content}
-            </div>
-          );
-        })}
+        <OverlayList overlays={rendered} onFocusItem={culling ? setFocusedItem : undefined} />
       </div>
       {/* 크롬(테두리)은 레이아웃에 끼지 않는 맨 위 레이어 — 캔버스 크기를 바꾸지 않고 포인터도 통과시킨다. */}
       <div

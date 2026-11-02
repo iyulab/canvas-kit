@@ -6,6 +6,21 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `cullOverlays`: leaves out the overlay items that are well outside the view, so a scene with thousands of them stays
+  smooth to update — only the items in view and a margin around it (`{ margin }`, a fraction of the viewport, default
+  0.5) are rendered, and the rest are built again as the view nears them. Off by default: with it on, an item outside the
+  view is not in the page for a screen reader or the Tab key until the view reaches it. The item that holds the focus is
+  always kept, and an item can opt out with `cull: false` (for content that must not be torn down and built again, like a
+  frame that holds state). Measured on a scene of 3000 items, zoomed in and updating every two seconds: the main thread
+  spends about a third of what it does with every item rendered.
+
+### Changed
+
+- Overlay items are memoized: a pan or zoom, which re-renders the viewer for its new transform, no longer rebuilds the box
+  of every item when the `overlays` it was given are the same.
+
 ## [0.7.0] - 2026-11-01
 
 ### Added

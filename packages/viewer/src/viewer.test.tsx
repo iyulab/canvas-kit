@@ -894,4 +894,106 @@ describe('Viewer', () => {
       expect(container.style.borderRadius).toBe('8px');
     });
   });
+
+  describe('overlay rendering cost', () => {
+    const counted = vi.fn();
+    function Counted({ label }: { label: string }) {
+      counted(label);
+      return <span>{label}</span>;
+    }
+
+    it('does not render an overlay item again when only the view moves', () => {
+      const overlays = [
+        { id: 'a', x: 0, y: 0, width: 10, height: 10, content: <Counted label="a" /> },
+        { id: 'b', x: 20, y: 0, width: 10, height: 10, content: <Counted label="b" /> },
+      ];
+      const { rerender } = render(<Viewer width={100} height={100} overlays={overlays} transform={{ x: 0, y: 0, scale: 1 }} />);
+      expect(counted).toHaveBeenCalledTimes(2);
+
+      rerender(<Viewer width={100} height={100} overlays={overlays} transform={{ x: 30, y: 10, scale: 2 }} />);
+
+      expect(screen.getByTestId('overlay-layer').style.transform).toBe('translate(30px, 10px) scale(2)');
+      expect(counted).toHaveBeenCalledTimes(2);
+    });
+
+    it('renders an item again when the item itself is replaced', () => {
+      const a1 = { id: 'a', x: 0, y: 0, width: 10, height: 10, content: <Counted label="a1" /> };
+      const a2 = { id: 'a', x: 0, y: 0, width: 10, height: 10, content: <Counted label="a2" /> };
+      const { rerender } = render(<Viewer width={100} height={100} overlays={[a1]} />);
+      rerender(<Viewer width={100} height={100} overlays={[a2]} />);
+      expect(screen.getByTestId('overlay-a')).toHaveTextContent('a2');
+    });
+  });
+
+  describe('cullOverlays', () => {
+    // A scene 1000 wide: items every 100, in a 100 × 100 view with the default half-view margin (50 each side).
+    const row = Array.from({ length: 10 }, (_, i) => ({
+      id: `i${i}`,
+      x: i * 100,
+      y: 0,
+      width: 10,
+      height: 10,
+      content: <span>item {i}</span>,
+    }));
+    const present = () => row.filter(o => screen.queryByTestId(`overlay-${o.id}`)).map(o => o.id);
+
+    it('renders every item unless asked to leave the far ones out', () => {
+      render(<Viewer width={100} height={100} overlays={row} />);
+      expect(present()).toHaveLength(10);
+    });
+
+    it('leaves out the items beyond the view and its margin, and keeps the ones in them', () => {
+      render(<Viewer width={100} height={100} overlays={row} cullOverlays />);
+      // View x 0..100, margin 50 -> -50..150: i0 (0..10) and i1 (100..110) are in.
+      expect(present()).toEqual(['i0', 'i1']);
+    });
+
+    it('follows the view: items come in as they near it and go as they leave', () => {
+      const { rerender } = render(
+        <Viewer width={100} height={100} overlays={row} cullOverlays transform={{ x: 0, y: 0, scale: 1 }} />
+      );
+      // Panned 420 to the right: view x 420..520, margin -> 370..570: i4 (400..410) and i5 (500..510) are in, i3 and i6 are not.
+      rerender(<Viewer width={100} height={100} overlays={row} cullOverlays transform={{ x: -420, y: 0, scale: 1 }} />);
+      expect(present()).toEqual(['i4', 'i5']);
+    });
+
+    it('measures in scene units, so zooming out brings more items into the view', () => {
+      render(<Viewer width={100} height={100} overlays={row} cullOverlays transform={{ x: 0, y: 0, scale: 0.1 }} />);
+      // View x 0..1000 at scale 0.1: the margin is 500 more each side — everything.
+      expect(present()).toHaveLength(10);
+    });
+
+    it('takes the margin as a fraction of the viewport', () => {
+      render(<Viewer width={100} height={100} overlays={row} cullOverlays={{ margin: 0 }} />);
+      // View x 0..100 and no margin: i0 (0..10) and i1 (100..110, touching the edge).
+      expect(present()).toEqual(['i0', 'i1']);
+    });
+
+    it('keeps an item with cull: false wherever it is', () => {
+      const kept = row.map(o => (o.id === 'i8' ? { ...o, cull: false } : o));
+      render(<Viewer width={100} height={100} overlays={kept} cullOverlays />);
+      expect(present()).toEqual(['i0', 'i1', 'i8']);
+    });
+
+    it('keeps the item that holds the focus when the view moves away from it', () => {
+      const withButton = row.map(o => (o.id === 'i0' ? { ...o, content: <button>focus me</button> } : o));
+      const { rerender } = render(
+        <Viewer width={100} height={100} overlays={withButton} cullOverlays transform={{ x: 0, y: 0, scale: 1 }} />
+      );
+      act(() => screen.getByText('focus me').focus());
+      rerender(<Viewer width={100} height={100} overlays={withButton} cullOverlays transform={{ x: -420, y: 0, scale: 1 }} />);
+      expect(present()).toEqual(['i0', 'i4', 'i5']);
+      expect(screen.getByText('focus me')).toHaveFocus();
+
+      // Once the focus leaves it, it goes like any other.
+      act(() => screen.getByText('focus me').blur());
+      expect(present()).toEqual(['i4', 'i5']);
+    });
+
+    it('leaves nothing out while the viewport has no size', () => {
+      // No width or height: it follows its container, which a test DOM measures as 0.
+      render(<Viewer overlays={row} cullOverlays />);
+      expect(present()).toHaveLength(10);
+    });
+  });
 });
