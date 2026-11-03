@@ -1001,6 +1001,7 @@ describe('Viewer', () => {
     type Call = [string, ...unknown[]];
     let calls: Call[];
     let styles: string[];
+    let strokes: string[];
     const fakeContext = () => {
       const ctx: Record<string, unknown> = {
         clearRect: (...a: unknown[]) => calls.push(['clearRect', ...a]),
@@ -1011,14 +1012,17 @@ describe('Viewer', () => {
         moveTo: (...a: unknown[]) => calls.push(['moveTo', ...a]),
         lineTo: (...a: unknown[]) => calls.push(['lineTo', ...a]),
         closePath: () => calls.push(['closePath']),
+        setLineDash: (...a: unknown[]) => calls.push(['setLineDash', ...a]),
       };
       Object.defineProperty(ctx, 'fillStyle', { set: (v: string) => { styles.push(v); }, get: () => '' });
+      Object.defineProperty(ctx, 'strokeStyle', { set: (v: string) => { strokes.push(v); }, get: () => '' });
       return ctx as unknown as CanvasRenderingContext2D;
     };
     let restore: () => void;
     beforeEach(() => {
       calls = [];
       styles = [];
+      strokes = [];
       const original = HTMLCanvasElement.prototype.getContext;
       HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, kind: string) {
         return this.dataset.testid === 'summary-canvas' && kind === '2d' ? fakeContext() : null;
@@ -1147,6 +1151,28 @@ describe('Viewer', () => {
       expect(calls.filter(c => c[0] === 'stroke')).toHaveLength(2);
       expect(calls.filter(c => c[0] === 'fill')).toHaveLength(2);
       expect(calls.filter(c => c[0] === 'moveTo')).toHaveLength(1);
+    });
+
+    it('draws an edge — a dashed or dotted ring in its own colour — apart from the point and its halo', () => {
+      const edged = [
+        { ...points(1)[0]!, id: 'a', summary: { shape: 'dot' as const, color: '#111', edge: { dash: 'dashed' as const, color: '#f59e0b' } } },
+        { ...points(1)[0]!, id: 'b', x: 40, summary: { shape: 'dot' as const, color: '#222', edge: { dash: 'dotted' as const, color: '#6b7280' } } },
+        { ...points(1)[0]!, id: 'c', x: 80, summary: { shape: 'dot' as const, color: '#333' } },
+      ];
+      render(<Viewer width={400} height={100} overlays={edged} summarizeOverlays={{ above: 2 }} />);
+      // Each edge: a stroked arc under its own dash pattern, then the pattern is put back — so the next point's fill and halo are solid.
+      const dashes = calls.filter(c => c[0] === 'setLineDash').map(c => c[1] as number[]);
+      expect(dashes.filter(d => d.length > 0)).toHaveLength(2);
+      expect(dashes[0]!.length).toBeGreaterThan(0);
+      expect(dashes.at(-1)).toEqual([]);
+      // A dashed edge and a dotted one are told apart by their pattern, and each is drawn in its own colour.
+      const patterns = dashes.filter(d => d.length > 0);
+      expect(patterns[0]).not.toEqual(patterns[1]);
+      expect(strokes).toContain('#f59e0b');
+      expect(strokes).toContain('#6b7280');
+      // The point is still filled in its own colour, edge or none.
+      expect(styles).toEqual(expect.arrayContaining(['#111', '#222', '#333']));
+      expect(calls.filter(c => c[0] === 'fill')).toHaveLength(3);
     });
 
     it('takes no pointer: the canvas lets presses through to the viewer', () => {

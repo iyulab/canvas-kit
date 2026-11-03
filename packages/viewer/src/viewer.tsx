@@ -68,6 +68,11 @@ export interface OverlaySummary {
   color: string;
   /** A ring around the point, so an item that calls for attention still does when it is drawn small and still. */
   halo?: boolean;
+  /**
+   * A dashed or dotted ring close around the point, in `color` (a resolved color, as above) of its own — a second channel for
+   * what the point's own color does not say (a value that is not current), so the two are never the same point.
+   */
+  edge?: { dash: 'dashed' | 'dotted'; color: string };
 }
 
 export type { Transform };
@@ -339,6 +344,19 @@ function drawSummaries(canvas: HTMLCanvasElement, items: ViewerOverlayItem[], tr
       ctx.arc(cx, cy, radius * 1.7, 0, Math.PI * 2);
       ctx.stroke();
       ctx.globalAlpha = 1;
+    }
+    if (summary.edge) {
+      // A dashed or dotted ring close around the point, in its own colour: a second channel apart from the point's colour and
+      // from the halo (which sits further out), the way a frame's border style says what its colour does not.
+      const width = Math.max(1.5, radius * 0.22);
+      ctx.strokeStyle = summary.edge.color;
+      ctx.lineWidth = width;
+      ctx.setLineDash(summary.edge.dash === 'dotted' ? [width, width * 1.6] : [width * 3, width * 1.6]);
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius * 1.3, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.strokeStyle = summary.color;
     }
     ctx.beginPath();
     if (summary.shape === 'pin') {
