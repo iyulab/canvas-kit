@@ -52,6 +52,22 @@ export interface ViewerOverlayItem extends OverlayItem {
    * torn down and built again as the view moves (a frame that holds state, a video that is playing). Default `true`.
    */
   cull?: boolean;
+  /**
+   * With the viewer's `summarizeOverlays`, what this item is drawn as on the canvas when there are too many items in the
+   * view to keep each as page content: a point. Without it the item always stays page content.
+   */
+  summary?: OverlaySummary;
+}
+
+/**
+ * A point on the canvas standing for an overlay item. `color` is a resolved color (`#rrggbb`, `rgb(...)`) — a canvas
+ * cannot read a CSS variable.
+ */
+export interface OverlaySummary {
+  shape: 'dot' | 'ring' | 'pin';
+  color: string;
+  /** A ring around the point, so an item that calls for attention still does when it is drawn small and still. */
+  halo?: boolean;
 }
 
 export type { Transform };
@@ -145,6 +161,20 @@ export interface ViewerProps {
    * Nothing is left out until the viewport has a size.
    */
   cullOverlays?: boolean | { margin?: number };
+  /**
+   * Draws the items that have a `summary` as points on the canvas instead of as page content once there are too many
+   * of them in the view — a page of thousands of boxes pans and zooms slowly however light each one is, a canvas of
+   * thousands of points does not. `above` is how many such items in the view (and its margin) turns it on (default 500);
+   * it turns off again below 0.8 × `above`, so a view at the edge does not flicker between the two. Off by default.
+   *
+   * While items are drawn as points they take no pointer, no focus and no tooltip, and a screen reader does not meet
+   * them (one status line, `summaryLabel`, says so) — zoom in far enough to bring the count down and they are page
+   * content again. An item without a `summary`, one with `cull: false`, and the item that holds the focus are never
+   * summarized.
+   */
+  summarizeOverlays?: boolean | { above?: number };
+  /** The line a screen reader is given while items are drawn as points. Default "N items are shown as a summary — zoom in to read them". */
+  summaryLabel?: (count: number) => string;
   /**
    * Called when the pointer is pressed and released without moving past `tapThreshold`.
    * Presses that start on an overlay item are left to that item and not reported here — unless the
@@ -267,6 +297,70 @@ function itemsNearView(
 
 const NO_OVERLAYS: ViewerOverlayItem[] = [];
 
+const DEFAULT_SUMMARY_ABOVE = 500;
+// Summarizing stops below this fraction of the count that started it.
+const SUMMARY_RELEASE = 0.8;
+// A point is never drawn smaller than this (CSS px) — a far view still shows where things are.
+const SUMMARY_MIN_PX = 3;
+
+const VISUALLY_HIDDEN: React.CSSProperties = {
+  position: 'absolute',
+  width: 1,
+  height: 1,
+  margin: -1,
+  padding: 0,
+  overflow: 'hidden',
+  clip: 'rect(0 0 0 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
+};
+
+function defaultSummaryLabel(count: number): string {
+  return `${count} items are shown as a summary — zoom in to read them`;
+}
+
+/** Draws the items' summaries on a canvas laid over the whole viewport, under the same transform as the scene. */
+function drawSummaries(canvas: HTMLCanvasElement, items: ViewerOverlayItem[], transform: Transform, ratio: number): void {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (const item of items) {
+    const summary = item.summary;
+    if (!summary) continue;
+    const radius = (Math.max(SUMMARY_MIN_PX, Math.min(item.width, item.height) * transform.scale) / 2) * ratio;
+    const cx = ((item.x + item.width / 2) * transform.scale + transform.x) * ratio;
+    const cy = ((item.y + item.height / 2) * transform.scale + transform.y) * ratio;
+    ctx.fillStyle = summary.color;
+    ctx.strokeStyle = summary.color;
+    if (summary.halo) {
+      ctx.globalAlpha = 0.35;
+      ctx.lineWidth = Math.max(1.5, radius * 0.45);
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius * 1.7, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    ctx.beginPath();
+    if (summary.shape === 'pin') {
+      // A drop pointing down, its tip at the foot of the item's box: a circle of 1/√2 of the item's radius (the square a pin is
+      // drawn from, turned a quarter of a half-turn, is as wide as the box across its corners) and the tip at the foot of its two tangents.
+      const r = radius * Math.SQRT1_2;
+      ctx.moveTo(cx, cy + r * Math.SQRT2);
+      ctx.lineTo(cx + r * Math.SQRT1_2, cy + r * Math.SQRT1_2);
+      ctx.arc(cx, cy, r, Math.PI / 4, (3 * Math.PI) / 4, true);
+      ctx.closePath();
+      ctx.fill();
+    } else if (summary.shape === 'ring') {
+      ctx.lineWidth = Math.max(1, radius * 0.45);
+      ctx.arc(cx, cy, Math.max(0.5, radius - ctx.lineWidth / 2), 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
 // 서버 렌더링에서는 layout effect가 돌지 않고 React 18이 경고한다 — 브라우저에서만 layout effect.
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
@@ -334,6 +428,8 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
     maxScale = DEFAULT_MAX_SCALE,
     overlays = NO_OVERLAYS,
     cullOverlays = false,
+    summarizeOverlays = false,
+    summaryLabel = defaultSummaryLabel,
     onTap,
     tapThreshold = DEFAULT_TAP_THRESHOLD,
     className,
@@ -366,9 +462,29 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
   const [focusedItem, setFocusedItem] = useState<string | null>(null);
   const culling = cullOverlays !== false;
   const cullMargin = typeof cullOverlays === 'object' ? (cullOverlays.margin ?? DEFAULT_CULL_MARGIN) : DEFAULT_CULL_MARGIN;
-  const rendered = culling
+  const nearView = culling
     ? itemsNearView(overlays, transform, { width, height }, cullMargin, focusedItem)
     : overlays;
+
+  // Too many summarizable items in the view -> they are drawn as points and leave the page. The count is of the ones in
+  // (and a margin around) the view even when culling is off; the switch has a lower way back than in (see SUMMARY_RELEASE).
+  const summaryOn = summarizeOverlays !== false;
+  const summaryAbove = typeof summarizeOverlays === 'object' ? (summarizeOverlays.above ?? DEFAULT_SUMMARY_ABOVE) : DEFAULT_SUMMARY_ABOVE;
+  const [summarized, setSummarized] = useState(false);
+  let rendered = nearView;
+  let summaryItems = NO_OVERLAYS;
+  if (summaryOn && width > 0 && height > 0) {
+    const candidates = nearView.filter(o => o.summary !== undefined && o.cull !== false && o.id !== focusedItem);
+    const inView = culling ? candidates.length : itemsNearView(candidates, transform, { width, height }, cullMargin, null).length;
+    // On above `above`; once on, off only below 0.8 × `above`.
+    const summarizing = summarized ? inView >= summaryAbove * SUMMARY_RELEASE : inView > summaryAbove;
+    if (summarizing !== summarized) setSummarized(summarizing);
+    if (summarizing) {
+      summaryItems = candidates;
+      const gone = new Set(candidates);
+      rendered = nearView.filter(o => !gone.has(o));
+    }
+  }
 
   // 누른 시점의 포인터 위치·transform과 팬 진입 여부 (렌더를 유발하지 않아야 함)
   const pointerStateRef = useRef<PointerState | null>(null);
@@ -388,6 +504,11 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
       renderer.render(scene, renderTransform);
     }
   }, [scene, width, height, pixelRatio, transform]);
+
+  const summaryCanvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (summaryCanvasRef.current) drawSummaries(summaryCanvasRef.current, summaryItems, transform, pixelRatio);
+  }, [summaryItems, width, height, pixelRatio, transform]);
 
   const applyTransform = useCallback(
     (next: Transform) => {
@@ -647,6 +768,21 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
         data-testid="canvas"
         style={{ position: 'absolute', top: 0, left: 0, width, height }}
       />
+      {summaryOn && (
+        <>
+          <canvas
+            ref={summaryCanvasRef}
+            width={Math.round(width * pixelRatio)}
+            height={Math.round(height * pixelRatio)}
+            data-testid="summary-canvas"
+            aria-hidden="true"
+            style={{ position: 'absolute', top: 0, left: 0, width, height, pointerEvents: 'none' }}
+          />
+          <div role="status" aria-live="polite" data-testid="summary-status" style={VISUALLY_HIDDEN}>
+            {summaryItems.length > 0 ? summaryLabel(summaryItems.length) : ''}
+          </div>
+        </>
+      )}
       <div
         data-testid="overlay-layer"
         style={{
@@ -663,7 +799,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
           pointerEvents: 'none',
         }}
       >
-        <OverlayList overlays={rendered} onFocusItem={culling ? setFocusedItem : undefined} />
+        <OverlayList overlays={rendered} onFocusItem={culling || summaryOn ? setFocusedItem : undefined} />
       </div>
       {/* 크롬(테두리)은 레이아웃에 끼지 않는 맨 위 레이어 — 캔버스 크기를 바꾸지 않고 포인터도 통과시킨다. */}
       <div

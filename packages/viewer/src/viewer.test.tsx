@@ -996,4 +996,168 @@ describe('Viewer', () => {
       expect(present()).toHaveLength(10);
     });
   });
+
+  describe('summarizeOverlays', () => {
+    type Call = [string, ...unknown[]];
+    let calls: Call[];
+    let styles: string[];
+    const fakeContext = () => {
+      const ctx: Record<string, unknown> = {
+        clearRect: (...a: unknown[]) => calls.push(['clearRect', ...a]),
+        beginPath: () => calls.push(['beginPath']),
+        arc: (...a: unknown[]) => calls.push(['arc', ...a]),
+        fill: () => calls.push(['fill']),
+        stroke: () => calls.push(['stroke']),
+        moveTo: (...a: unknown[]) => calls.push(['moveTo', ...a]),
+        lineTo: (...a: unknown[]) => calls.push(['lineTo', ...a]),
+        closePath: () => calls.push(['closePath']),
+      };
+      Object.defineProperty(ctx, 'fillStyle', { set: (v: string) => { styles.push(v); }, get: () => '' });
+      return ctx as unknown as CanvasRenderingContext2D;
+    };
+    let restore: () => void;
+    beforeEach(() => {
+      calls = [];
+      styles = [];
+      const original = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, kind: string) {
+        return this.dataset.testid === 'summary-canvas' && kind === '2d' ? fakeContext() : null;
+      } as typeof original;
+      restore = () => {
+        HTMLCanvasElement.prototype.getContext = original;
+      };
+    });
+    afterEach(() => restore());
+
+    const summary = { shape: 'dot' as const, color: '#c33' };
+    // n points on a line, 10 wide, every 20.
+    const points = (n: number, extra: Record<string, unknown> = {}) =>
+      Array.from({ length: n }, (_, i) => ({
+        id: `p${i}`,
+        x: i * 20,
+        y: 0,
+        width: 10,
+        height: 10,
+        content: <span>point {i}</span>,
+        summary,
+        ...extra,
+      }));
+    const inPage = (n: number) => Array.from({ length: n }, (_, i) => i).filter(i => screen.queryByTestId(`overlay-p${i}`));
+    const drawnDots = () => calls.filter(c => c[0] === 'arc').length;
+
+    it('is off unless asked: no summary canvas, every item stays page content', () => {
+      render(<Viewer width={400} height={100} overlays={points(11)} />);
+      expect(screen.queryByTestId('summary-canvas')).toBeNull();
+      expect(inPage(11)).toHaveLength(11);
+    });
+
+    it('keeps items as page content while there are no more of them in the view than `above`', () => {
+      render(<Viewer width={400} height={100} overlays={points(10)} summarizeOverlays={{ above: 10 }} />);
+      expect(inPage(10)).toHaveLength(10);
+      expect(drawnDots()).toBe(0);
+      expect(screen.getByTestId('summary-status')).toBeEmptyDOMElement();
+    });
+
+    it('draws the items as points and takes them out of the page once there are more than `above`', () => {
+      render(<Viewer width={400} height={100} overlays={points(11)} summarizeOverlays={{ above: 10 }} />);
+      expect(inPage(11)).toHaveLength(0);
+      expect(drawnDots()).toBe(11);
+      expect(styles).toContain('#c33');
+      expect(screen.getByTestId('summary-status')).toHaveTextContent('11 items are shown as a summary — zoom in to read them');
+    });
+
+    it('says it in the words it is given', () => {
+      render(
+        <Viewer width={400} height={100} overlays={points(11)} summarizeOverlays={{ above: 10 }} summaryLabel={n => `${n} 개를 요약으로 보임`} />
+      );
+      expect(screen.getByTestId('summary-status')).toHaveTextContent('11 개를 요약으로 보임');
+    });
+
+    it('goes back to page content only below 0.8 × `above`, so the edge does not flicker', () => {
+      const { rerender } = render(<Viewer width={400} height={100} overlays={points(11)} summarizeOverlays={{ above: 10 }} />);
+      expect(inPage(11)).toHaveLength(0);
+      // 9 and 8 are not above 10, but summarizing stops only below 8 (0.8 × 10).
+      rerender(<Viewer width={400} height={100} overlays={points(9)} summarizeOverlays={{ above: 10 }} />);
+      expect(inPage(9)).toHaveLength(0);
+      rerender(<Viewer width={400} height={100} overlays={points(8)} summarizeOverlays={{ above: 10 }} />);
+      expect(inPage(8)).toHaveLength(0);
+      rerender(<Viewer width={400} height={100} overlays={points(7)} summarizeOverlays={{ above: 10 }} />);
+      expect(inPage(7)).toHaveLength(7);
+      // And starts again only above 10.
+      rerender(<Viewer width={400} height={100} overlays={points(10)} summarizeOverlays={{ above: 10 }} />);
+      expect(inPage(10)).toHaveLength(10);
+    });
+
+    it('counts the items in the view: zooming in to fewer of them brings the page content back', () => {
+      // 11 points 20 apart (0..210): at scale 1 all are in the 400-wide view; at scale 20 the view shows 20 units.
+      const { rerender } = render(
+        <Viewer width={400} height={100} overlays={points(11)} summarizeOverlays={{ above: 10 }} transform={{ x: 0, y: 0, scale: 1 }} />
+      );
+      expect(inPage(11)).toHaveLength(0);
+      rerender(
+        <Viewer width={400} height={100} overlays={points(11)} summarizeOverlays={{ above: 10 }} transform={{ x: 0, y: 0, scale: 20 }} />
+      );
+      // The view (scene x 0..20) and its half-view margin reach -10..30: only p0 and p1 are near; the count is under 8.
+      expect(inPage(11)).toHaveLength(11);
+    });
+
+    it('never summarizes an item without a summary or with cull: false', () => {
+      const mixed = points(12).map((o, i) => (i === 0 ? { ...o, summary: undefined } : i === 1 ? { ...o, cull: false } : o));
+      render(<Viewer width={400} height={100} overlays={mixed} summarizeOverlays={{ above: 9 }} />);
+      expect(inPage(12)).toEqual([0, 1]);
+    });
+
+    it('keeps the item that holds the focus when the count tips over', () => {
+      const withButton = (n: number) => points(n).map((o, i) => (i === 2 ? { ...o, content: <button>focus me</button> } : o));
+      const { rerender } = render(<Viewer width={400} height={100} overlays={withButton(9)} summarizeOverlays={{ above: 9 }} />);
+      act(() => screen.getByText('focus me').focus());
+      rerender(<Viewer width={400} height={100} overlays={withButton(12)} summarizeOverlays={{ above: 9 }} />);
+      expect(screen.getByText('focus me')).toHaveFocus();
+      expect(inPage(12)).toEqual([2]);
+      // Once the focus leaves it, it is summarized like the others.
+      act(() => screen.getByText('focus me').blur());
+      expect(inPage(12)).toEqual([]);
+    });
+
+    it('draws a point at the middle of its box under the view transform', () => {
+      const overlays = [{ id: 'p0', x: 100, y: 50, width: 10, height: 10, content: null, summary }, ...points(2).slice(1)];
+      render(<Viewer width={400} height={100} overlays={overlays} summarizeOverlays={{ above: 1 }} transform={{ x: 10, y: 20, scale: 2 }} />);
+      // centre (105, 55) -> (105 × 2 + 10, 55 × 2 + 20) = (220, 130); 10 × 2 = 20 px across -> radius 10.
+      const first = calls.find(c => c[0] === 'arc')!;
+      expect(first.slice(1, 4)).toEqual([220, 130, 10]);
+    });
+
+    it('never draws a point under 3 px across', () => {
+      render(<Viewer width={400} height={100} overlays={points(3)} summarizeOverlays={{ above: 1 }} transform={{ x: 0, y: 0, scale: 0.1 }} />);
+      // 10 × 0.1 = 1 px -> kept at 3 px across -> radius 1.5.
+      const arcs = calls.filter(c => c[0] === 'arc');
+      expect(arcs).toHaveLength(3);
+      expect(arcs.every(c => c[3] === 1.5)).toBe(true);
+    });
+
+    it('draws a halo, a ring and a pin as such', () => {
+      const shapes = [
+        { ...points(1)[0]!, id: 'a', summary: { shape: 'dot' as const, color: '#111', halo: true } },
+        { ...points(1)[0]!, id: 'b', x: 40, summary: { shape: 'ring' as const, color: '#222' } },
+        { ...points(1)[0]!, id: 'c', x: 80, summary: { shape: 'pin' as const, color: '#333' } },
+      ];
+      render(<Viewer width={400} height={100} overlays={shapes} summarizeOverlays={{ above: 2 }} />);
+      // dot + halo: two arcs, a stroke (halo) and a fill; ring: an arc and a stroke; pin: a path with a tip and one arc, filled.
+      expect(calls.filter(c => c[0] === 'arc')).toHaveLength(4);
+      expect(calls.filter(c => c[0] === 'stroke')).toHaveLength(2);
+      expect(calls.filter(c => c[0] === 'fill')).toHaveLength(2);
+      expect(calls.filter(c => c[0] === 'moveTo')).toHaveLength(1);
+    });
+
+    it('takes no pointer: the canvas lets presses through to the viewer', () => {
+      render(<Viewer width={400} height={100} overlays={points(11)} summarizeOverlays={{ above: 10 }} />);
+      expect(screen.getByTestId('summary-canvas')).toHaveStyle({ pointerEvents: 'none' });
+      expect(screen.getByTestId('summary-canvas')).toHaveAttribute('aria-hidden', 'true');
+    });
+
+    it('summarizes nothing while the viewport has no size', () => {
+      render(<Viewer overlays={points(11)} summarizeOverlays={{ above: 10 }} />);
+      expect(inPage(11)).toHaveLength(11);
+    });
+  });
 });

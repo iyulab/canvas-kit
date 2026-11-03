@@ -2,6 +2,7 @@ export { Viewer } from './viewer';
 export type {
   ViewerProps,
   ViewerOverlayItem,
+  OverlaySummary,
   ViewerHandle,
   ViewerTapEvent,
   FitToRectOptions,

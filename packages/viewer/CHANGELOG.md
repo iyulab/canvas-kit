@@ -6,6 +6,16 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `summarizeOverlays`: draws the items that have a `summary` (`{ shape: 'dot' | 'ring' | 'pin', color, halo? }`) as points
+  on a canvas instead of as page content once there are more than `above` of them in the view (default 500) — a page of
+  thousands of boxes pans and zooms slowly however light each one is, and a canvas of thousands of points does not. It
+  turns off again below 0.8 × `above`, so a view at the edge does not flicker. While items are points they take no
+  pointer, focus or tooltip and a screen reader does not meet them (one status line, `summaryLabel`, says so); zoom in
+  until the count falls and they are page content again. An item without a `summary`, one with `cull: false`, and the
+  item that holds the focus are never summarized. Off by default.
+
 ## [0.8.0] - 2026-11-03
 
 ### Added
