@@ -6,6 +6,12 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A scene with flowing dashes (`Shape.dashFlow` of `@canvas-kit/core`) is drawn in motion: redrawn on a clock, at most
+  20 frames a second, only while the viewer is on screen, and not at all for a reader whose system asks for reduced
+  motion (the dashes then stand still). A scene with nothing that moves is drawn once, as before.
+
 ### Fixed
 
 - The edge of a point drawn by `summarizeOverlays` (dashed, dotted or double) is sized in screen pixels and sits clear of the point, with a line no thinner than 1.75 px. At a point of 6 or 7 px — a far view of a crowd — the ring hugged the point as a hairline and a dashed and a dotted edge looked the same; the three forms now read as three. A halo is drawn outside the edge, not over it.

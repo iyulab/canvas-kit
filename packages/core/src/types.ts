@@ -20,6 +20,10 @@ export interface Shape {
   /** A dash pattern for the stroke — dash and gap lengths in scene units, as `setLineDash` takes them (`[6, 4]`).
    * Absent or empty: solid. */
   dash?: number[];
+  /** The dash pattern moves along the stroke — scene units per second, forward along the points' order (a negative
+   * number backward). Needs a `dash`. A viewer animates it (unless the reader asks for less motion, where it stands
+   * still); a render with no time — a designer, a still image — draws it at its start. Absent or 0: the dashes stand. */
+  dashFlow?: number;
 }
 
 export interface Rect extends Shape {

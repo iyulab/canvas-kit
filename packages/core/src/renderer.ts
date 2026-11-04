@@ -16,11 +16,18 @@ export interface CanvasKitRendererOptions {
     imageLoader?: ImageLoader;
 }
 
+/** Whether anything in the scene moves with time — a stroke whose dashes flow (`Shape.dashFlow`). A viewer redraws a scene only while this holds. */
+export function sceneHasMotion(scene: Scene): boolean {
+    return scene.getObjects().some(obj => !!obj.dashFlow && !!obj.dash?.length);
+}
+
 export class CanvasKitRenderer {
     private canvas: HTMLCanvasElement;
     private ctx: CanvasRenderingContext2D;
     private onImageLoad?: () => void;
     private imageLoader: ImageLoader;
+    /** Milliseconds on a clock of the caller's choosing; what a flowing dash is drawn at. */
+    private time = 0;
 
     constructor(canvas: HTMLCanvasElement, options: CanvasKitRendererOptions = {}) {
         if (!canvas) {
@@ -41,11 +48,16 @@ export class CanvasKitRenderer {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
-    public render(scene: Scene, transform: Transform = IDENTITY_TRANSFORM) {
+    /**
+     * Draws the scene. `time` (milliseconds, any origin) is where a moving thing — dashes that flow — is in its motion;
+     * left out, it stands at its start.
+     */
+    public render(scene: Scene, transform: Transform = IDENTITY_TRANSFORM, time = 0) {
         if (!scene) {
             console.warn('Scene is required for rendering');
             return;
         }
+        this.time = time;
 
         // clear는 뷰 transform과 무관하게 캔버스 전체(raw pixel 영역)를 대상으로 해야 하므로
         // transform을 적용하기 전에 실행한다.
@@ -114,9 +126,16 @@ export class CanvasKitRenderer {
     }
 
     /** Strokes the current path, or the rect given, with the object's width and dash pattern. */
-    private strokeWith(obj: { dash?: number[] }, lineWidth: number, rect?: [number, number, number, number]) {
+    private strokeWith(obj: { dash?: number[]; dashFlow?: number }, lineWidth: number, rect?: [number, number, number, number]) {
         this.ctx.lineWidth = lineWidth;
-        if (obj.dash?.length) this.ctx.setLineDash(obj.dash);
+        if (obj.dash?.length) {
+            this.ctx.setLineDash(obj.dash);
+            if (obj.dashFlow) {
+                // Forward along the line is the pattern's start moving back; kept within one period so a long-running clock keeps its precision.
+                const sum = obj.dash.reduce((a, b) => a + b, 0) * (obj.dash.length % 2 === 1 ? 2 : 1);
+                if (sum > 0) this.ctx.lineDashOffset = -(((this.time / 1000) * obj.dashFlow) % sum);
+            }
+        }
         if (rect) this.ctx.strokeRect(...rect);
         else this.ctx.stroke();
     }

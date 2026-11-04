@@ -1,5 +1,5 @@
 export { Scene } from './scene';
-export { CanvasKitRenderer } from './renderer';
+export { CanvasKitRenderer, sceneHasMotion } from './renderer';
 export type { CanvasKitRendererOptions } from './renderer';
 export { HitTest } from './hit-test';
 export { getObjectBounds, containsPoint, isObjectInsideRect, isObjectIntersectingRect, measureTextWidth, textBoxOffsetX, textBoxOffsetY, rectCornerRadius, polylinePoints,

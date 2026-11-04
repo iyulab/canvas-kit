@@ -133,7 +133,8 @@ Object geometry is the same in every renderer, and `getObjectBounds`, `containsP
 - `text`: one `fontSize` line tall; `x` is its left edge, middle or right edge as `align` says, `y` its top, middle
   or bottom as `verticalAlign` says; without `fill` it is drawn black. `background` fills its box, which `padding`
   grows on every side.
-- Any stroked shape takes a `dash` pattern (`[6, 4]`).
+- Any stroked shape takes a `dash` pattern (`[6, 4]`), and `dashFlow` (scene units per second) makes the dashes travel along
+  the stroke — the viewer animates it, and keeps it still for a reader who asks for reduced motion.
 - `line` / `path`: `points` are relative to `x`/`y`, so moving the object moves the whole polyline.
   A line without `stroke`/`strokeWidth` is drawn black, 1px wide. Paths are traced by one shared
   function (`tracePath`), so a smoothed (`tension`) or `closed` path has the same outline everywhere.

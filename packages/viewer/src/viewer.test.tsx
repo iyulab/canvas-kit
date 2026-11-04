@@ -1223,3 +1223,70 @@ describe('Viewer', () => {
     });
   });
 });
+
+describe('Viewer motion', () => {
+  const frames = new Map<number, FrameRequestCallback>();
+  let next = 1;
+  const flowing = () => {
+    const scene = new Scene();
+    (scene.getObjects as unknown as ReturnType<typeof vi.fn>).mockReturnValue([{ type: 'line', x: 0, y: 0, points: [0, 0, 10, 0], dash: [6, 4], dashFlow: 10 }]);
+    return scene;
+  };
+  const advance = (now: number) => {
+    const due = [...frames.entries()];
+    frames.clear();
+    for (const [, callback] of due) callback(now);
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    frames.clear();
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { frames.set(next, callback); return next++; });
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => { frames.delete(id); });
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: false, media: query, addEventListener: () => {}, removeEventListener: () => {} }));
+  });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('redraws a scene with flowing dashes on a clock, a frame every 50 ms at most', () => {
+    const scene = flowing();
+    render(<Viewer width={100} height={100} scene={scene} />);
+    expect(mockRender).toHaveBeenCalledTimes(1);
+    advance(1000);
+    expect(mockRender).toHaveBeenLastCalledWith(scene, { x: 0, y: 0, scale: 1 }, 1000);
+    advance(1020); // too soon
+    expect(mockRender).toHaveBeenCalledTimes(2);
+    advance(1060);
+    expect(mockRender).toHaveBeenCalledTimes(3);
+    expect(mockRender).toHaveBeenLastCalledWith(scene, { x: 0, y: 0, scale: 1 }, 1060);
+  });
+
+  it('draws a scene with nothing moving once, and asks for no frames', () => {
+    render(<Viewer width={100} height={100} scene={new Scene()} />);
+    expect(frames.size).toBe(0);
+    expect(mockRender).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the dashes still for a reader who asks for less motion', () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('prefers-reduced-motion'), media: query, addEventListener: () => {}, removeEventListener: () => {} }));
+    render(<Viewer width={100} height={100} scene={flowing()} />);
+    expect(frames.size).toBe(0);
+    expect(mockRender).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops its clock when the viewer goes away', () => {
+    const { unmount } = render(<Viewer width={100} height={100} scene={flowing()} />);
+    expect(frames.size).toBe(1);
+    unmount();
+    expect(frames.size).toBe(0);
+  });
+
+  it('keeps its place in the motion when an image finishes loading', () => {
+    const scene = flowing();
+    render(<Viewer width={100} height={100} scene={scene} />);
+    advance(2000);
+    const options = (CanvasKitRenderer as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    mockRender.mockClear();
+    options.onImageLoad();
+    expect(mockRender).toHaveBeenCalledWith(scene, { x: 0, y: 0, scale: 1 }, 2000);
+  });
+});

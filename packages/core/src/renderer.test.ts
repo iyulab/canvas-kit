@@ -1,4 +1,4 @@
-import { CanvasKitRenderer } from './renderer';
+import { CanvasKitRenderer, sceneHasMotion } from './renderer';
 import { Scene } from './scene';
 import { IDENTITY_TRANSFORM } from './types';
 import { createImageLoader } from './image-loader';
@@ -265,5 +265,50 @@ describe('CanvasKitRenderer object geometry', () => {
     const fills = calls.filter(c => c.type === 'fillRect');
     expect(fills.map(c => c.props.x)).toEqual([0, 40]);
     expect(calls.some(c => c.type === 'strokeRect')).toBe(false);
+  });
+});
+
+describe('CanvasKitRenderer flowing dashes', () => {
+  function offsets(time: number | undefined, shapes: Array<Record<string, unknown>>) {
+    const canvas = document.createElement('canvas');
+    const scene = new Scene();
+    for (const shape of shapes) scene.add({ type: 'line', x: 0, y: 0, points: [0, 0, 100, 0], stroke: 'black', strokeWidth: 1, ...shape } as never);
+    const ctx = canvas.getContext('2d')!;
+    const seen: number[] = [];
+    const stroke = ctx.stroke.bind(ctx);
+    ctx.stroke = (() => { seen.push(ctx.lineDashOffset); return stroke(); }) as typeof ctx.stroke;
+    const renderer = new CanvasKitRenderer(canvas);
+    if (time === undefined) renderer.render(scene); else renderer.render(scene, IDENTITY_TRANSFORM, time);
+    return seen;
+  }
+
+  it('moves the pattern forward along the line as time passes — its start goes back', () => {
+    expect(offsets(500, [{ dash: [6, 4], dashFlow: 10 }])).toEqual([-5]);
+    expect(offsets(1000, [{ dash: [6, 4], dashFlow: 10 }])).toEqual([-10 % 10]);
+  });
+
+  it('keeps the offset within one period, so a long-running clock keeps its precision', () => {
+    expect(offsets(2500, [{ dash: [6, 4], dashFlow: 10 }])).toEqual([-5]);
+    // An odd pattern repeats as itself twice over: [5] is on 5, off 5.
+    expect(offsets(1000, [{ dash: [5], dashFlow: 4 }])).toEqual([-4]);
+  });
+
+  it('flows the other way for a negative flow', () => {
+    expect(offsets(500, [{ dash: [6, 4], dashFlow: -10 }])).toEqual([5]);
+  });
+
+  it('stands still with no time, without a flow, and without a dash — and does not reach the next line', () => {
+    expect(offsets(undefined, [{ dash: [6, 4], dashFlow: 10 }])).toEqual([-0]);
+    expect(offsets(700, [{ dash: [6, 4] }, { dash: [6, 4], dashFlow: 0 }, { dashFlow: 10 }])).toEqual([0, 0, 0]);
+    expect(offsets(500, [{ dash: [6, 4], dashFlow: 10 }, { dash: [6, 4] }])).toEqual([-5, 0]);
+  });
+
+  it('says whether a scene has anything moving', () => {
+    const still = new Scene();
+    still.add({ type: 'line', x: 0, y: 0, points: [0, 0, 10, 0], dash: [6, 4] });
+    still.add({ type: 'line', x: 0, y: 0, points: [0, 0, 10, 0], dashFlow: 10 });
+    expect(sceneHasMotion(still)).toBe(false);
+    still.add({ type: 'line', x: 0, y: 0, points: [0, 0, 10, 0], dash: [6, 4], dashFlow: 10 });
+    expect(sceneHasMotion(still)).toBe(true);
   });
 });

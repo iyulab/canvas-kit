@@ -53,7 +53,7 @@ Canvas-Kit은 3개의 npm 패키지로 구성되며, UI 종속성에 따라 명�
 DrawingObject = Rect | Circle | Text | Path | Line
 ```
 
-모든 타입은 `packages/core/src/types.ts`에 정의. `id?`, `x`, `y`, `fill?`, `stroke?`, `strokeWidth?`, `dash?`를 공유 속성으로 가짐.
+모든 타입은 `packages/core/src/types.ts`에 정의. `id?`, `x`, `y`, `fill?`, `stroke?`, `strokeWidth?`, `dash?`, `dashFlow?`를 공유 속성으로 가짐.
 
 **좌표 의미는 렌더러마다 같다**(`CanvasKitRenderer`의 Canvas 2D와 designer의 Konva): `rect`/`image`는 `x`/`y`가 좌상단, `circle`은 중심,
 `text`는 높이 = `fontSize` 한 줄, `x`는 `align`에 따라 상자의 왼쪽·가운데·오른쪽, `y`는 `verticalAlign`에 따라 위·가운데·아래(`padding`만큼 상자가 사방으로 커지고 `background`가 그 상자를 칠함), `line`/`path`의 `points`는 `x`/`y` 기준 상대좌표(이동 = `x`/`y` 변경).

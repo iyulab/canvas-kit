@@ -8,7 +8,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { CanvasKitRenderer, Scene, IDENTITY_TRANSFORM, viewToScene, fitTransform, zoomAt } from '@canvas-kit/core';
+import { CanvasKitRenderer, Scene, IDENTITY_TRANSFORM, viewToScene, fitTransform, zoomAt, sceneHasMotion } from '@canvas-kit/core';
 import type { Transform, OverlayItem, Point, Rect, Size } from '@canvas-kit/core';
 
 const DEFAULT_MIN_SCALE = 0.1;
@@ -397,6 +397,14 @@ function drawSummaries(canvas: HTMLCanvasElement, items: ViewerOverlayItem[], tr
   }
 }
 
+// A scene with moving dashes is redrawn this often (milliseconds): 20 frames a second is smooth for a dash and costs a
+// fraction of a full-rate redraw of a board with a large background.
+const MOTION_FRAME_MS = 50;
+
+function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
 // 서버 렌더링에서는 layout effect가 돌지 않고 React 18이 경고한다 — 브라우저에서만 layout effect.
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
@@ -534,10 +542,38 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
           : { x: transform.x * pixelRatio, y: transform.y * pixelRatio, scale: transform.scale * pixelRatio };
       // 이미지가 아직 로딩 중이면 이번 프레임엔 그려지지 않는다 — 로딩이 끝나면 같은 renderer
       // 인스턴스로 다시 한번 그려서 반영한다(별도 React 상태 없이, canvas만 갱신).
-      const renderer: CanvasKitRenderer = new CanvasKitRenderer(canvasRef.current, {
-        onImageLoad: () => renderer.render(scene, renderTransform),
+      let clock = 0;
+      const canvas = canvasRef.current;
+      const renderer: CanvasKitRenderer = new CanvasKitRenderer(canvas, {
+        // A scene still — or not yet moving — is drawn with no time; one in motion keeps its place in it.
+        onImageLoad: () => (clock > 0 ? renderer.render(scene, renderTransform, clock) : renderer.render(scene, renderTransform)),
       });
       renderer.render(scene, renderTransform);
+      // Dashes that flow (`Shape.dashFlow`) move: the scene is redrawn on a clock, a frame every MOTION_FRAME_MS — only
+      // while it is on screen, and never for a reader who asks for less motion (the dashes then stand still).
+      if (!sceneHasMotion(scene) || prefersReducedMotion() || typeof requestAnimationFrame !== 'function') return;
+      let frame = 0;
+      let last = -Infinity;
+      let visible = true;
+      const tick = (now: number) => {
+        frame = requestAnimationFrame(tick);
+        if (!visible || now - last < MOTION_FRAME_MS) return;
+        last = now;
+        clock = now;
+        renderer.render(scene, renderTransform, now);
+      };
+      frame = requestAnimationFrame(tick);
+      const observer =
+        typeof IntersectionObserver === 'function'
+          ? new IntersectionObserver(entries => {
+              visible = entries[entries.length - 1]?.isIntersecting !== false;
+            })
+          : undefined;
+      observer?.observe(canvas);
+      return () => {
+        cancelAnimationFrame(frame);
+        observer?.disconnect();
+      };
     }
   }, [scene, width, height, pixelRatio, transform]);
 

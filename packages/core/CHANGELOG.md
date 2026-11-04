@@ -6,6 +6,13 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `Shape.dashFlow`: the dash pattern of a stroke moves along it — scene units per second, forward along the points'
+  order (negative: backward). `CanvasKitRenderer.render(scene, transform, time)` takes the clock (milliseconds) the
+  dashes are drawn at, as a `lineDashOffset` kept within one period; with no time they stand at their start.
+  `sceneHasMotion(scene)` tells a caller whether anything in a scene moves, so it redraws only then.
+
 ## [0.8.0] - 2026-10-17
 
 ### Added
