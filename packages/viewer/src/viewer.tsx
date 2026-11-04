@@ -337,36 +337,44 @@ function drawSummaries(canvas: HTMLCanvasElement, items: ViewerOverlayItem[], tr
     const cy = ((item.y + item.height / 2) * transform.scale + transform.y) * ratio;
     ctx.fillStyle = summary.color;
     ctx.strokeStyle = summary.color;
-    if (summary.halo) {
-      ctx.globalAlpha = 0.35;
-      ctx.lineWidth = Math.max(1.5, radius * 0.45);
-      ctx.beginPath();
-      ctx.arc(cx, cy, radius * 1.7, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-    }
+    // The edge is sized in screen pixels, not as a fraction of the point: a point of 6 or 7 px (a far view of a crowd) would
+    // otherwise get a hairline ring hugging it, where a dash, a dot and a double rule are one blur. A ring keeps clear air
+    // around the point and a line no thinner than 1.75 px, so the three forms stay three.
+    let edgeReach = 0;
     if (summary.edge) {
-      // A dashed or dotted ring close around the point, in its own colour: a second channel apart from the point's colour and
-      // from the halo (which sits further out), the way a frame's border style says what its colour does not.
-      const width = Math.max(1.5, radius * 0.22);
+      const width = Math.max(1.75 * ratio, radius * 0.22);
+      const gap = Math.max(radius * 0.3, 2 * ratio);
       ctx.strokeStyle = summary.edge.color;
       ctx.lineWidth = width;
       if (summary.edge.dash === 'double') {
-        // Two thin solid rings, close together: a line style the other two cannot be mistaken for.
-        ctx.lineWidth = Math.max(1, width * 0.55);
-        for (const reach of [1.22, 1.5]) {
+        // Two solid rings with air between them: a line style the other two cannot be mistaken for.
+        const line = Math.max(1.25 * ratio, width * 0.6);
+        ctx.lineWidth = line;
+        for (const reach of [gap, gap + line * 2]) {
           ctx.beginPath();
-          ctx.arc(cx, cy, radius * reach, 0, Math.PI * 2);
+          ctx.arc(cx, cy, radius + reach, 0, Math.PI * 2);
           ctx.stroke();
         }
+        edgeReach = gap + line * 2 + line / 2;
       } else {
-        ctx.setLineDash(summary.edge.dash === 'dotted' ? [width, width * 1.6] : [width * 3, width * 1.6]);
+        ctx.setLineDash(summary.edge.dash === 'dotted' ? [width, width * 1.5] : [width * 3.2, width * 1.8]);
         ctx.beginPath();
-        ctx.arc(cx, cy, radius * 1.3, 0, Math.PI * 2);
+        ctx.arc(cx, cy, radius + gap + width / 2, 0, Math.PI * 2);
         ctx.stroke();
         ctx.setLineDash([]);
+        edgeReach = gap + width;
       }
       ctx.strokeStyle = summary.color;
+    }
+    if (summary.halo) {
+      // Outside the edge, where there is one: the halo is the further ring.
+      const haloWidth = Math.max(1.5, radius * 0.45);
+      ctx.globalAlpha = 0.35;
+      ctx.lineWidth = haloWidth;
+      ctx.beginPath();
+      ctx.arc(cx, cy, Math.max(radius * 1.7, radius + edgeReach + haloWidth / 2 + ratio), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
     }
     ctx.beginPath();
     if (summary.shape === 'pin') {

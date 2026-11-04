@@ -1175,6 +1175,32 @@ describe('Viewer', () => {
       expect(calls.filter(c => c[0] === 'fill')).toHaveLength(3);
     });
 
+    it('keeps the edge of a small point clear of it and apart from its halo, so a dash, a dot and a double rule stay three', () => {
+      // A point of 6 px (radius 3): a far view of a crowd.
+      const small = (dash: 'dashed' | 'dotted' | 'double', extra: Record<string, unknown> = {}) => [
+        { ...points(1)[0]!, id: 'a', width: 6, height: 6, summary: { shape: 'dot' as const, color: '#111', edge: { dash, color: '#f59e0b' }, ...extra } },
+        { ...points(1)[0]!, id: 'b', x: 40, width: 6, height: 6, summary: { shape: 'dot' as const, color: '#333' } },
+      ];
+      const radii = (items: ReturnType<typeof small>) => {
+        calls = [];
+        const { unmount } = render(<Viewer width={400} height={100} overlays={items} summarizeOverlays={{ above: 1 }} />);
+        const arcs = calls.filter(c => c[0] === 'arc').map(c => c[3] as number);
+        unmount();
+        return arcs;
+      };
+      for (const dash of ['dashed', 'dotted'] as const) {
+        const [ring, point] = radii(small(dash));
+        expect(point, dash).toBe(3);
+        expect(ring! - point!, dash).toBeGreaterThanOrEqual(2); // air between the point and its ring
+      }
+      const [inner, outer] = radii(small('double'));
+      expect(inner! - 3).toBeGreaterThanOrEqual(2);
+      expect(outer! - inner!).toBeGreaterThanOrEqual(2.5); // the two rules are apart
+      // With a halo too, the halo is the further ring — not on top of the edge.
+      const [edge, halo] = radii(small('dashed', { halo: true }));
+      expect(halo! - edge!).toBeGreaterThan(1.5);
+    });
+
     it('draws a double edge as two solid rings — not dashed, not dotted — in its own colour', () => {
       const doubled = [{ ...points(1)[0]!, id: 'a', summary: { shape: 'dot' as const, color: '#111', edge: { dash: 'double' as const, color: '#f59e0b' } } }, { ...points(1)[0]!, id: 'b', x: 40, summary: { shape: 'dot' as const, color: '#333' } }];
       render(<Viewer width={400} height={100} overlays={doubled} summarizeOverlays={{ above: 1 }} />);
