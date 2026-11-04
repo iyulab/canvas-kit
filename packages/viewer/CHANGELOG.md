@@ -8,7 +8,7 @@ All notable changes to this package are documented here. The format follows
 
 ### Added
 
-- `summarizeOverlays`: draws the items that have a `summary` (`{ shape: 'dot' | 'ring' | 'pin', color, halo?, edge?: { dash: 'dashed' | 'dotted', color } }` — `edge` is a dashed or dotted ring close around the point, a second channel apart from its color and halo) as points
+- `summarizeOverlays`: draws the items that have a `summary` (`{ shape: 'dot' | 'ring' | 'pin', color, halo?, edge?: { dash: 'dashed' | 'dotted' | 'double', color } }` — `edge` is a dashed, dotted or double ring close around the point, a second channel apart from its color and halo) as points
   on a canvas instead of as page content once there are more than `above` of them in the view (default 500) — a page of
   thousands of boxes pans and zooms slowly however light each one is, and a canvas of thousands of points does not. It
   turns off again below 0.8 × `above`, so a view at the edge does not flicker. While items are points they take no

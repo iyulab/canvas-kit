@@ -1175,6 +1175,16 @@ describe('Viewer', () => {
       expect(calls.filter(c => c[0] === 'fill')).toHaveLength(3);
     });
 
+    it('draws a double edge as two solid rings — not dashed, not dotted — in its own colour', () => {
+      const doubled = [{ ...points(1)[0]!, id: 'a', summary: { shape: 'dot' as const, color: '#111', edge: { dash: 'double' as const, color: '#f59e0b' } } }, { ...points(1)[0]!, id: 'b', x: 40, summary: { shape: 'dot' as const, color: '#333' } }];
+      render(<Viewer width={400} height={100} overlays={doubled} summarizeOverlays={{ above: 1 }} />);
+      // Two edge rings and the two points' fills; no pattern is set for the edge (it stays solid).  Each ring is its own stroked arc in the edge's colour.
+      expect(calls.filter(c => c[0] === 'setLineDash')).toHaveLength(0);
+      expect(calls.filter(c => c[0] === 'arc')).toHaveLength(4);
+      expect(calls.filter(c => c[0] === 'stroke')).toHaveLength(2);
+      expect(strokes).toContain('#f59e0b');
+    });
+
     it('takes no pointer: the canvas lets presses through to the viewer', () => {
       render(<Viewer width={400} height={100} overlays={points(11)} summarizeOverlays={{ above: 10 }} />);
       expect(screen.getByTestId('summary-canvas')).toHaveStyle({ pointerEvents: 'none' });

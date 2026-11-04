@@ -69,10 +69,10 @@ export interface OverlaySummary {
   /** A ring around the point, so an item that calls for attention still does when it is drawn small and still. */
   halo?: boolean;
   /**
-   * A dashed or dotted ring close around the point, in `color` (a resolved color, as above) of its own — a second channel for
+   * A dashed, dotted or double ring close around the point, in `color` (a resolved color, as above) of its own — a second channel for
    * what the point's own color does not say (a value that is not current), so the two are never the same point.
    */
-  edge?: { dash: 'dashed' | 'dotted'; color: string };
+  edge?: { dash: 'dashed' | 'dotted' | 'double'; color: string };
 }
 
 export type { Transform };
@@ -351,11 +351,21 @@ function drawSummaries(canvas: HTMLCanvasElement, items: ViewerOverlayItem[], tr
       const width = Math.max(1.5, radius * 0.22);
       ctx.strokeStyle = summary.edge.color;
       ctx.lineWidth = width;
-      ctx.setLineDash(summary.edge.dash === 'dotted' ? [width, width * 1.6] : [width * 3, width * 1.6]);
-      ctx.beginPath();
-      ctx.arc(cx, cy, radius * 1.3, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      if (summary.edge.dash === 'double') {
+        // Two thin solid rings, close together: a line style the other two cannot be mistaken for.
+        ctx.lineWidth = Math.max(1, width * 0.55);
+        for (const reach of [1.22, 1.5]) {
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius * reach, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      } else {
+        ctx.setLineDash(summary.edge.dash === 'dotted' ? [width, width * 1.6] : [width * 3, width * 1.6]);
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 1.3, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
       ctx.strokeStyle = summary.color;
     }
     ctx.beginPath();
