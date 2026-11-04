@@ -6,6 +6,8 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-05
+
 ### Added
 
 - A scene with flowing dashes (`Shape.dashFlow` of `@canvas-kit/core`) is drawn in motion: redrawn on a clock, at most

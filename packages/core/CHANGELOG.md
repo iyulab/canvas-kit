@@ -6,6 +6,8 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-05
+
 ### Added
 
 - `Shape.dashFlow`: the dash pattern of a stroke moves along it — scene units per second, forward along the points'
