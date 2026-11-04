@@ -6,6 +6,8 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-04
+
 ### Added
 
 - `summarizeOverlays`: draws the items that have a `summary` (`{ shape: 'dot' | 'ring' | 'pin', color, halo?, edge?: { dash: 'dashed' | 'dotted' | 'double', color } }` — `edge` is a dashed, dotted or double ring close around the point, a second channel apart from its color and halo) as points
