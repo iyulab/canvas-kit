@@ -41,7 +41,7 @@ describe('KonvaDesigner overlays', () => {
         expect(item.style.width).toBe('160px');
         expect(item.style.height).toBe('100px');
         expect((item.parentElement as HTMLElement).style.transform).toBe('translate(10px, 20px) scale(2)');
-        expect((item.parentElement as HTMLElement).style.transformOrigin).toBe('0 0');
+        expect((item.parentElement as HTMLElement).style.transformOrigin).toBe('0px 0px');
     });
 
     it('lets the pointer through an item to the shape beneath, unless the item is interactive', () => {

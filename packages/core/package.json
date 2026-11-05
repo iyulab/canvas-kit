@@ -39,7 +39,7 @@
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
-    "jsdom": "^30.1.1",
+    "jsdom": "^31.0.0",
     "postcss": "^8.5.28",
     "tsup": "^9.0.0",
     "typescript": "^6.0.3",
