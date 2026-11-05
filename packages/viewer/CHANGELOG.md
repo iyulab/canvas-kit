@@ -6,6 +6,18 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- A viewer sized by its container is printed at the size of the paper, not the size of the screen it was on. A page being printed
+  is laid out at the paper's size in the middle of printing, and the page was taken before the resize observer had been heard or a
+  render scheduled from it had run, so the view kept the fit it had made for the screen: a box that is `100vw` wide printed cut off
+  or off-centre, differing with the width of the window it was printed from (a box of a fixed size was not affected). The viewer now
+  measures its container again, and draws, when the print media starts and ends.
+
+### Changed
+
+- `react-dom` is a peer dependency, next to `react`: the viewer calls `flushSync` from it for the measurement above.
+
 ## [0.10.0] - 2026-11-05
 
 ### Added

@@ -8,6 +8,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { flushSync } from 'react-dom';
 import { CanvasKitRenderer, Scene, IDENTITY_TRANSFORM, viewToScene, fitTransform, zoomAt, sceneHasMotion } from '@canvas-kit/core';
 import type { Transform, OverlayItem, Point, Rect, Size } from '@canvas-kit/core';
 
@@ -439,13 +440,21 @@ function useViewportSize(
     const element = containerRef.current;
     if (!followsContainer || !element) return;
     setMeasured({ width: element.clientWidth, height: element.clientHeight });
-    if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(entries => {
+    // A page being printed is laid out at the paper's size in the middle of printing, and the page is taken before a ResizeObserver
+    // callback or a render scheduled from it has run — a viewer sized by its container would print at the size of the screen it was
+    // on. The print media starting and ending is the moment the container has the new size; measure it and draw in the same turn.
+    const print = typeof window !== 'undefined' && typeof window.matchMedia === 'function' ? window.matchMedia('print') : null;
+    const measureNow = () => flushSync(() => setMeasured({ width: element.clientWidth, height: element.clientHeight }));
+    print?.addEventListener?.('change', measureNow);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(entries => {
       const box = entries[entries.length - 1]?.contentRect;
       if (box) setMeasured({ width: box.width, height: box.height });
     });
-    observer.observe(element);
-    return () => observer.disconnect();
+    observer?.observe(element);
+    return () => {
+      observer?.disconnect();
+      print?.removeEventListener?.('change', measureNow);
+    };
   }, [containerRef, followsContainer]);
 
   return { width: width ?? measured.width, height: height ?? measured.height };

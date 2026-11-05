@@ -548,6 +548,41 @@ describe('Viewer', () => {
       }
     });
 
+    it('measures its container again, in the same turn, when the print media starts and ends', () => {
+      // A page is taken for printing before a ResizeObserver callback (here: never called) or a render scheduled from it has run.
+      const printListeners = new Set<() => void>();
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false, media: query,
+        addEventListener: (_: string, listener: () => void) => { if (query === 'print') printListeners.add(listener); },
+        removeEventListener: (_: string, listener: () => void) => { printListeners.delete(listener); },
+      }));
+      let size = { width: 700, height: 300 };
+      Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => size.width });
+      Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get: () => size.height });
+      try {
+        const onViewportResize = vi.fn();
+        const { unmount } = render(<Viewer scene={new Scene()} onViewportResize={onViewportResize} />);
+        expect(onViewportResize).toHaveBeenLastCalledWith({ width: 700, height: 300 });
+        expect(printListeners.size).toBe(1);
+
+        size = { width: 793, height: 1122 }; // the paper's size
+        printListeners.forEach(listener => listener());
+        expect(screen.getByTestId('canvas')).toHaveAttribute('width', '793');
+        expect(onViewportResize).toHaveBeenLastCalledWith({ width: 793, height: 1122 });
+
+        size = { width: 700, height: 300 }; // back on the screen
+        printListeners.forEach(listener => listener());
+        expect(onViewportResize).toHaveBeenLastCalledWith({ width: 700, height: 300 });
+
+        unmount();
+        expect(printListeners.size).toBe(0);
+      } finally {
+        vi.unstubAllGlobals();
+        delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth;
+        delete (HTMLElement.prototype as { clientHeight?: number }).clientHeight;
+      }
+    });
+
     it('reports the viewport size once measured and on every resize', () => {
       const onViewportResize = vi.fn();
       render(<Viewer scene={new Scene()} onViewportResize={onViewportResize} />);
