@@ -138,7 +138,7 @@ describe('Viewer', () => {
 
     const overlayLayer = screen.getByTestId('overlay-layer');
     expect(overlayLayer.style.transform).toBe('translate(15px, 25px) scale(2)');
-    expect(overlayLayer.style.transformOrigin).toBe('0 0');
+    expect(overlayLayer.style.transformOrigin).toBe('0px 0px');
   });
 
   it('keeps the overlay layer non-interactive but individual overlays interactive', () => {

@@ -8,6 +8,9 @@ All notable changes to this package are documented here. The format follows
 
 ### Fixed
 
+- A host's `style={{ userSelect: 'text' }}` gives text selection back. The viewer set `-webkit-user-select: none` after the host's
+  style, and the browser treats `-webkit-user-select` as the same property as `user-select`, so the later `none` took the selection
+  away again. `-webkit-user-select` now follows what the host said (`WebkitUserSelect`, else `userSelect`, else `none`).
 - A viewer sized by its container is printed at the size of the paper, not the size of the screen it was on. A page being printed
   is laid out at the paper's size in the middle of printing, and the page was taken before the resize observer had been heard or a
   render scheduled from it had run, so the view kept the fit it had made for the screen: a box that is `100vw` wide printed cut off

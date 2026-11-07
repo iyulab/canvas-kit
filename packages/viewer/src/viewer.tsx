@@ -830,9 +830,11 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
         // 끌면 팬이 되는 면이라 글이 선택되지 않게 한다(지도 · 캔버스 라이브러리의 관례). 글을 고르게 할
         // 아이템은 자기 요소에 `user-select: text`를, 뷰어 전체는 `style`로 되돌린다.
         userSelect: 'none',
-        WebkitUserSelect: 'none',
         background: 'var(--ck-viewer-background, transparent)',
         ...style,
+        // `-webkit-user-select` is the same property as `user-select`, so it is set last, from what the host said: a fixed
+        // `none` here would be applied after the host's `userSelect: 'text'` and take the selection back.
+        WebkitUserSelect: (style?.WebkitUserSelect ?? style?.userSelect ?? 'none') as React.CSSProperties['WebkitUserSelect'],
       }}
       onKeyDown={handleKeyDown}
       onFocus={handleFocus}
