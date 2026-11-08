@@ -6,6 +6,8 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-08
+
 ### Fixed
 
 - A host's `style={{ userSelect: 'text' }}` gives text selection back. The viewer set `-webkit-user-select: none` after the host's
