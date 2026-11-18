@@ -6,6 +6,8 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-19
+
 ### Added
 
 - Two touch (or pen) pointers pinch: the scene zooms by the change in the gap between them, around the point where they began,
