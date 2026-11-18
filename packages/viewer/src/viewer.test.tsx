@@ -449,6 +449,133 @@ describe('Viewer', () => {
     });
   });
 
+  describe('pinch (two touch pointers)', () => {
+    const touch = (clientX: number, clientY: number, pointerId: number) => ({ clientX, clientY, pointerId, pointerType: 'touch' });
+    const lastTransform = () => mockRender.mock.calls[mockRender.mock.calls.length - 1][1];
+
+    it('zooms by the change in the gap between the pointers, around where they began, and follows their midpoint', () => {
+      render(<Viewer width={200} height={200} scene={new Scene()} />);
+      const container = screen.getByTestId('viewer-container');
+
+      fireEvent.pointerDown(container, touch(80, 100, 1));
+      fireEvent.pointerDown(container, touch(120, 100, 2));
+      mockRender.mockClear();
+      // The gap doubles (40 -> 80) around (100, 100) and the midpoint moves 20 to the right.
+      fireEvent.pointerMove(container, touch(160, 100, 2));
+      fireEvent.pointerMove(container, touch(80, 100, 1));
+
+      const t = lastTransform();
+      expect(t.scale).toBeCloseTo(2);
+      expect(t.x).toBeCloseTo(-100 + 20);
+      expect(t.y).toBeCloseTo(-100);
+    });
+
+    it('is as much a pan as a zoom: two pointers moving together keep the scale', () => {
+      render(<Viewer width={200} height={200} scene={new Scene()} />);
+      const container = screen.getByTestId('viewer-container');
+
+      fireEvent.pointerDown(container, touch(80, 100, 1));
+      fireEvent.pointerDown(container, touch(120, 100, 2));
+      mockRender.mockClear();
+      fireEvent.pointerMove(container, touch(90, 130, 1));
+      fireEvent.pointerMove(container, touch(130, 130, 2));
+
+      const t = lastTransform();
+      expect(t.scale).toBeCloseTo(1);
+      expect(t.x).toBeCloseTo(10);
+      expect(t.y).toBeCloseTo(30);
+    });
+
+    it('stays within minScale and maxScale', () => {
+      render(<Viewer width={200} height={200} scene={new Scene()} maxScale={2} minScale={0.5} />);
+      const container = screen.getByTestId('viewer-container');
+
+      fireEvent.pointerDown(container, touch(95, 100, 1));
+      fireEvent.pointerDown(container, touch(105, 100, 2));
+      fireEvent.pointerMove(container, touch(195, 100, 2));
+      expect(lastTransform().scale).toBeLessThanOrEqual(2);
+
+      fireEvent.pointerMove(container, touch(95.5, 100, 2));
+      expect(lastTransform().scale).toBeGreaterThanOrEqual(0.5);
+    });
+
+    it('captures both pointers when the pinch begins', () => {
+      render(<Viewer width={200} height={200} />);
+      const container = screen.getByTestId('viewer-container');
+      const setPointerCapture = vi.fn();
+      (container as unknown as { setPointerCapture: typeof setPointerCapture }).setPointerCapture = setPointerCapture;
+
+      fireEvent.pointerDown(container, touch(80, 100, 4));
+      expect(setPointerCapture).not.toHaveBeenCalled();
+      fireEvent.pointerDown(container, touch(120, 100, 5));
+
+      expect(setPointerCapture.mock.calls.map(call => call[0]).sort()).toEqual([4, 5]);
+    });
+
+    it('is neither a tap nor a pan for the pointer that stays down after the other leaves', () => {
+      const onTap = vi.fn();
+      render(<Viewer width={200} height={200} scene={new Scene()} onTap={onTap} />);
+      const container = screen.getByTestId('viewer-container');
+
+      fireEvent.pointerDown(container, touch(80, 100, 1));
+      fireEvent.pointerDown(container, touch(120, 100, 2));
+      fireEvent.pointerMove(container, touch(130, 100, 2));
+      fireEvent.pointerUp(container, touch(130, 100, 2));
+      mockRender.mockClear();
+      fireEvent.pointerMove(container, touch(60, 100, 1));
+      fireEvent.pointerUp(container, touch(60, 100, 1));
+
+      expect(mockRender).not.toHaveBeenCalled();
+      expect(onTap).not.toHaveBeenCalled();
+    });
+
+    it('does not report the press that became a pinch as a tap', () => {
+      const onTap = vi.fn();
+      render(<Viewer width={200} height={200} onTap={onTap} />);
+      const container = screen.getByTestId('viewer-container');
+
+      fireEvent.pointerDown(container, touch(80, 100, 1));
+      fireEvent.pointerDown(container, touch(120, 100, 2));
+      fireEvent.pointerUp(container, touch(80, 100, 1));
+      fireEvent.pointerUp(container, touch(120, 100, 2));
+
+      expect(onTap).not.toHaveBeenCalled();
+    });
+
+    it('ends a pinch on cancel, and a single touch pans and taps again afterwards', () => {
+      const onTap = vi.fn();
+      render(<Viewer width={200} height={200} scene={new Scene()} onTap={onTap} />);
+      const container = screen.getByTestId('viewer-container');
+
+      fireEvent.pointerDown(container, touch(80, 100, 1));
+      fireEvent.pointerDown(container, touch(120, 100, 2));
+      fireEvent.pointerCancel(container, touch(80, 100, 1));
+      fireEvent.pointerCancel(container, touch(120, 100, 2));
+
+      fireEvent.pointerDown(container, touch(100, 100, 3));
+      mockRender.mockClear();
+      fireEvent.pointerMove(container, touch(130, 115, 3));
+      expect(lastTransform()).toEqual({ x: 30, y: 15, scale: 1 });
+      fireEvent.pointerUp(container, touch(130, 115, 3));
+
+      fireEvent.pointerDown(container, touch(50, 50, 6));
+      fireEvent.pointerUp(container, touch(50, 50, 6));
+      expect(onTap).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves a mouse alone: it is one pointer and never joins a pinch', () => {
+      render(<Viewer width={200} height={200} scene={new Scene()} />);
+      const container = screen.getByTestId('viewer-container');
+
+      fireEvent.pointerDown(container, { clientX: 100, clientY: 100, pointerId: 1, pointerType: 'mouse' });
+      fireEvent.pointerDown(container, { clientX: 140, clientY: 100, pointerId: 2, pointerType: 'mouse' });
+      mockRender.mockClear();
+      fireEvent.pointerMove(container, { clientX: 170, clientY: 115, pointerId: 2, pointerType: 'mouse' });
+
+      expect(lastTransform()).toEqual({ x: 30, y: 15, scale: 1 });
+    });
+  });
+
   describe('sizing', () => {
     let resizeCallback: ResizeObserverCallback | undefined;
     const originalResizeObserver = globalThis.ResizeObserver;

@@ -469,6 +469,18 @@ interface PointerState {
   startedOnOverlay: boolean;
 }
 
+interface PinchState {
+  startDistance: number;
+  /** The midpoint between the two pointers when the pinch began, in client coordinates. */
+  startMid: Point;
+  startTransform: Transform;
+}
+
+function midAndDistance(points: Iterable<Point>): { mid: Point; distance: number } {
+  const [a, b] = [...points];
+  return { mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, distance: Math.hypot(a.x - b.x, a.y - b.y) };
+}
+
 export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
   {
     width: widthProp,
@@ -541,6 +553,11 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
 
   // 누른 시점의 포인터 위치·transform과 팬 진입 여부 (렌더를 유발하지 않아야 함)
   const pointerStateRef = useRef<PointerState | null>(null);
+  // Touch and pen pointers that are down (a mouse is one pointer by nature, and one that leaves the window can miss its
+  // release — it never joins a pinch). A second one down starts a pinch: two fingers zoom around the point between them
+  // and pan with it, and the press that was a pan or a tap is neither.
+  const touchPointsRef = useRef<Map<number, Point>>(new Map());
+  const pinchRef = useRef<PinchState | null>(null);
 
   useEffect(() => {
     if (canvasRef.current && scene) {
@@ -736,6 +753,23 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       setAiming(false);
+      if (e.pointerType !== 'mouse' && !pinchRef.current) {
+        const points = touchPointsRef.current;
+        points.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (points.size === 2) {
+          // The second pointer: whatever the first was doing (a pan, a tap in the making) ends, and the two zoom together.
+          const { mid, distance } = midAndDistance(points.values());
+          pinchRef.current = { startDistance: Math.max(distance, 1), startMid: mid, startTransform: transform };
+          pointerStateRef.current = null;
+          globalThis.getSelection?.()?.removeAllRanges();
+          // Both are followed outside the container too, and neither goes on to click an overlay item.
+          const container = e.currentTarget as { setPointerCapture?: (id: number) => void };
+          for (const id of points.keys()) container.setPointerCapture?.(id);
+          return;
+        }
+      } else if (pinchRef.current) {
+        return; // a third pointer is not part of the pinch and does not start a pan of its own
+      }
       const target = e.target as Element | null;
       pointerStateRef.current = {
         pointerId: e.pointerId,
@@ -751,6 +785,19 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
+      const points = touchPointsRef.current;
+      if (points.has(e.pointerId)) points.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const pinch = pinchRef.current;
+      if (pinch) {
+        if (points.size < 2) return;
+        const { mid, distance } = midAndDistance(points.values());
+        const rect = containerRef.current?.getBoundingClientRect();
+        const around = { x: pinch.startMid.x - (rect?.left ?? 0), y: pinch.startMid.y - (rect?.top ?? 0) };
+        // Zoom by the change in the gap between the fingers, around where they began, then follow the midpoint as it moves.
+        const zoomed = zoomAt(pinch.startTransform, around, distance / pinch.startDistance, { minScale, maxScale });
+        applyTransform({ x: zoomed.x + (mid.x - pinch.startMid.x), y: zoomed.y + (mid.y - pinch.startMid.y), scale: zoomed.scale });
+        return;
+      }
       const state = pointerStateRef.current;
       if (!state || state.pointerId !== e.pointerId) return;
 
@@ -775,11 +822,22 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
         scale: state.startTransform.scale,
       });
     },
-    [applyTransform, tapThreshold]
+    [applyTransform, tapThreshold, minScale, maxScale]
   );
+
+  // A pointer left: the pinch ends when fewer than two remain, and the pointer still down does not turn into a pan or a tap.
+  const releasePinch = useCallback((pointerId: number): boolean => {
+    const points = touchPointsRef.current;
+    points.delete(pointerId);
+    if (!pinchRef.current) return false;
+    if (points.size < 2) pinchRef.current = null;
+    pointerStateRef.current = null;
+    return true;
+  }, []);
 
   const handlePointerUp = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
+      if (releasePinch(e.pointerId)) return;
       const state = pointerStateRef.current;
       if (state?.pointerId !== e.pointerId) return;
       pointerStateRef.current = null;
@@ -798,14 +856,18 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
         shiftKey: e.shiftKey,
       });
     },
-    [onTap]
+    [onTap, releasePinch]
   );
 
-  const handlePointerCancel = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (pointerStateRef.current?.pointerId === e.pointerId) {
-      pointerStateRef.current = null;
-    }
-  }, []);
+  const handlePointerCancel = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (releasePinch(e.pointerId)) return;
+      if (pointerStateRef.current?.pointerId === e.pointerId) {
+        pointerStateRef.current = null;
+      }
+    },
+    [releasePinch]
+  );
 
   // A pannable region, focusable so the keyboard can pan and zoom it as the pointer does (WCAG
   // 2.1.1 — the same reason a scrollable region takes `tabIndex`). It stays a `region` rather than

@@ -6,6 +6,14 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Two touch (or pen) pointers pinch: the scene zooms by the change in the gap between them, around the point where they began,
+  and follows their midpoint as it moves, within `minScale` / `maxScale`. Until now the viewer followed one pointer, so on a
+  touch screen — where `touch-action: none` leaves the page no zoom of its own — the only way to zoom was a button the host drew.
+  The press that was a pan or a tap when the second pointer arrived is neither; the pointer left down after the other lifts
+  does not turn into a pan or a tap. A mouse is one pointer and never joins a pinch. Works in controlled and uncontrolled mode.
+
 ## [0.11.0] - 2026-11-08
 
 ### Fixed
